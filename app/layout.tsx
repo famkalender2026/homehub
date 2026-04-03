@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "@/styles/globals.css";
-import { AppShell } from "@/components/AppShell"; // Pfad eventuell anpassen, falls AppShell woanders liegt
+//import { AppShell } from "@/components/AppShell"; // Pfad eventuell anpassen, falls AppShell woanders liegt
+import { AppShell } from "../components/AppShell";
 
 export const metadata: Metadata = {
   title: "FamilyHub",

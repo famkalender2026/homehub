@@ -4,12 +4,13 @@ import { useRouter, usePathname } from 'next/navigation'
 
 // 1. Definition muss GANZ OBEN stehen, außerhalb der Funktionen
 const NAV_ITEMS = [
-  { id: 'dashboard', label: 'Start',     emoji: '🏠', path: '/dashboard'    },
+  { id: 'dashboard', label: 'Start',     emoji: '🏠', path: '/dashboard'   },
   { id: 'kalender',  label: 'Kalender', emoji: '📅', path: '/kalender'     },
   { id: 'aufgaben',  label: 'Aufgaben', emoji: '✅', path: '/aufgaben'     },
   { id: 'einkauf',   label: 'Einkauf',  emoji: '🛒', path: '/einkaufsliste'},
   { id: 'rezepte',   label: 'Rezepte',  emoji: '🍳', path: '/rezepte'      },
-  { id: 'wetter',    label: 'Wetter',   emoji: '🌤', path: '/wetter'       },
+  { id: 'wetter',    label: 'Wetter',   emoji: '🌤', path: '/wetter'        },
+  { id: 'kalorien',  label: 'Kalorien', emoji: '🔥', path: '/kalorien'        },
 ]
 
 interface NavProps {
