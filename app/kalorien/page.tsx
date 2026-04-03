@@ -72,7 +72,7 @@ const STORAGE_KEY_WEIGHT = 'familyhub_weight_entries';
 const STORAGE_KEY_START_DATE = 'familyhub_weight_start_date';
 const STORAGE_KEY_ACTIVITIES = 'familyhub_activities';
 
-// ─── Styles (wie im FamilyHub Dashboard) ─────────────────────────────────
+// ─── Styles (FamilyHub Dashboard – FIXED: border longhand) ─────────────
 const S = {
   page: {
     minHeight: '100vh',
@@ -197,13 +197,17 @@ const S = {
     width: '100%',
     padding: 12,
     borderRadius: 16,
-    border: '1px solid #e2e8f0',
+    // ✅ FIX: Shorthand 'border' durch Longhand ersetzt (vermeidet React-Style-Conflict)
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: '#e2e8f0',
     textAlign: 'left' as const,
     background: '#fff',
     cursor: 'pointer',
     transition: 'all 0.2s',
   } as React.CSSProperties,
   activityActive: {
+    // ✅ Überschreibt nur borderColor – jetzt konfliktfrei
     borderColor: '#2563eb',
     background: '#eff6ff',
   },
