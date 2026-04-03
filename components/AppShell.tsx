@@ -6,11 +6,12 @@ import { useRouter, usePathname } from 'next/navigation'
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Start',     emoji: '🏠', path: '/dashboard'   },
   { id: 'kalender',  label: 'Kalender', emoji: '📅', path: '/kalender'     },
-  { id: 'aufgaben',  label: 'Aufgaben', emoji: '✅', path: '/aufgaben'     },
+  { id: 'kalorien',  label: 'Kalorien', emoji: '🔥', path: '/kalorien'        },
   { id: 'einkauf',   label: 'Einkauf',  emoji: '🛒', path: '/einkaufsliste'},
   { id: 'rezepte',   label: 'Rezepte',  emoji: '🍳', path: '/rezepte'      },
   { id: 'wetter',    label: 'Wetter',   emoji: '🌤', path: '/wetter'        },
-  { id: 'kalorien',  label: 'Kalorien', emoji: '🔥', path: '/kalorien'        },
+  { id: 'aufgaben',  label: 'Aufgaben', emoji: '✅', path: '/aufgaben'     },
+  
 ]
 
 interface NavProps {
