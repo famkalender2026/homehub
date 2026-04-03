@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import "@/styles/globals.css";   // ← so
+import "@/styles/globals.css";
+import { AppShell } from "@/components/AppShell"; // Pfad eventuell anpassen, falls AppShell woanders liegt
 
 export const metadata: Metadata = {
   title: "FamilyHub",
-  // ...
+  description: "Dein zentraler Familien-Hub",
 };
 
 export default function RootLayout({
@@ -13,7 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="de">
-      <body>{children}</body>
+      <body style={{ margin: 0, padding: 0, backgroundColor: '#f8fafc' }}>
+        <AppShell>
+          {children}
+        </AppShell>
+      </body>
     </html>
   );
 }
