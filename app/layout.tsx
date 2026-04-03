@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import "./globals.css";
+import "@/styles/globals.css";   // ← so
 
 export const metadata: Metadata = {
   title: "FamilyHub",
-  description: "Deine Familien-Organisations-App",
+  // ...
 };
 
 export default function RootLayout({

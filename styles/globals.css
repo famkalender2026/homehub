@@ -1,0 +1,76 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Serif+Display:ital@0;1&display=swap');
+
+/* ─── Design Tokens ─────────────────────────────────────── */
+:root {
+  /* Farben */
+  --ink:          #0f172a;
+  --ink2:         #64748b;
+  --ink3:         #94a3b8;
+  --surface:      #f8fafc;
+  --card:         #ffffff;
+
+  --blue:         #2563eb;
+  --blue-light:   #eff6ff;
+  --blue-mid:     #bfdbfe;
+  --blue-dark:    #1d4ed8;
+
+  --green:        #16a34a;
+  --green-light:  #f0fdf4;
+
+  --rose:         #e11d48;
+  --rose-light:   #fff1f2;
+
+  --amber:        #d97706;
+  --amber-light:  #fffbeb;
+
+  --violet:       #7c3aed;
+  --violet-light: #f5f3ff;
+
+  --teal:         #0d9488;
+  --teal-light:   #f0fdfa;
+
+  --pink:         #db2777;
+  --pink-light:   #fce7f3;
+
+  --ocean-dark:   #1e3a5f;
+  --ocean-mid:    #2563eb;
+
+  /* Schatten */
+  --shadow-sm:  0 1px 3px rgba(15,23,42,.06), 0 1px 2px rgba(15,23,42,.04);
+  --shadow-md:  0 4px 16px rgba(15,23,42,.08), 0 2px 6px rgba(15,23,42,.05);
+  --shadow-lg:  0 12px 40px rgba(15,23,42,.12), 0 4px 12px rgba(15,23,42,.07);
+  --shadow-btn: 0 4px 14px rgba(37,99,235,.3);
+
+  /* Radien */
+  --r-sm:  10px;
+  --r-md:  14px;
+  --r-lg:  18px;
+  --r-xl:  24px;
+  --r-2xl: 28px;
+}
+
+/* ─── Reset ──────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ─── Scrollbars ────────────────────────────────────────── */
+.hide-scroll::-webkit-scrollbar { display: none; }
+.hide-scroll { scrollbar-width: none; }
+
+/* ─── Animationen ───────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp .22s ease both; }
+
+@keyframes pulseRec {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(225,29,72,.4); }
+  50%       { transform: scale(1.06); box-shadow: 0 0 0 6px rgba(225,29,72,0); }
+}
+.recording { animation: pulseRec 1.2s infinite; }
+
+/* ─── Utility ───────────────────────────────────────────── */
+.truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
