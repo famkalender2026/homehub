@@ -67,6 +67,480 @@ interface AITip {
   icon: string;
 }
 
+// ============== DESIGN TOKENS ==============
+const ocean = {
+  50:  '#e8f4fd',
+  100: '#c5e4f8',
+  200: '#9dd0f2',
+  300: '#63b3e8',
+  400: '#2e90d9',
+  500: '#1a72b8',
+  600: '#125a96',
+  700: '#0d4474',
+  800: '#08305a',
+  900: '#041e3a',
+};
+
+// ============== GLOBAL STYLES ==============
+const globalStyles = `
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap');
+
+  .rs-root {
+    --ocean-50: #e8f4fd;
+    --ocean-100: #c5e4f8;
+    --ocean-200: #9dd0f2;
+    --ocean-300: #63b3e8;
+    --ocean-400: #2e90d9;
+    --ocean-500: #1a72b8;
+    --ocean-600: #125a96;
+    --ocean-700: #0d4474;
+    --ocean-800: #08305a;
+    --ocean-900: #041e3a;
+    --surface: #ffffff;
+    --surface-2: #f4f7fb;
+    --surface-3: #eaf1f9;
+    --border: rgba(18, 90, 150, 0.12);
+    --border-md: rgba(18, 90, 150, 0.22);
+    --text-primary: #0a1a2e;
+    --text-secondary: #4a647d;
+    --text-muted: #8aa4bb;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    color: var(--text-primary);
+  }
+
+  .rs-tab-bar {
+    display: flex;
+    gap: 2px;
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .rs-tab-bar::-webkit-scrollbar { display: none; }
+
+  .rs-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    background: transparent;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    letter-spacing: 0.01em;
+  }
+  .rs-tab:hover { background: rgba(46, 144, 217, 0.08); color: var(--ocean-600); }
+  .rs-tab.active {
+    background: var(--surface);
+    color: var(--ocean-600);
+    box-shadow: 0 1px 4px rgba(18, 90, 150, 0.15), 0 0 0 1px rgba(18, 90, 150, 0.08);
+    font-weight: 600;
+  }
+
+  .rs-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    transition: box-shadow 0.15s ease;
+  }
+  .rs-card-hover:hover {
+    box-shadow: 0 4px 16px rgba(18, 90, 150, 0.12);
+    border-color: var(--border-md);
+  }
+
+  .rs-hero-card {
+    background: linear-gradient(135deg, var(--ocean-600) 0%, var(--ocean-800) 100%);
+    border-radius: var(--radius-xl);
+    padding: 24px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+  }
+  .rs-hero-card::before {
+    content: '';
+    position: absolute;
+    top: -30px; right: -30px;
+    width: 120px; height: 120px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+  }
+  .rs-hero-card::after {
+    content: '';
+    position: absolute;
+    bottom: -20px; left: -20px;
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+
+  .rs-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface-2);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0 12px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .rs-search-wrap:focus-within {
+    border-color: var(--ocean-400);
+    box-shadow: 0 0 0 3px rgba(46, 144, 217, 0.12);
+    background: var(--surface);
+  }
+  .rs-search-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 11px 0;
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text-primary);
+    outline: none;
+  }
+  .rs-search-input::placeholder { color: var(--text-muted); }
+
+  .rs-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border-radius: var(--radius-md);
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: none;
+    letter-spacing: 0.02em;
+  }
+  .rs-btn-primary {
+    background: var(--ocean-500);
+    color: white;
+  }
+  .rs-btn-primary:hover { background: var(--ocean-600); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(18, 90, 150, 0.25); }
+  .rs-btn-primary:active { transform: translateY(0); box-shadow: none; }
+  .rs-btn-secondary {
+    background: var(--surface-3);
+    color: var(--ocean-600);
+    border: 1px solid var(--border-md);
+  }
+  .rs-btn-secondary:hover { background: var(--ocean-50); border-color: var(--ocean-300); }
+  .rs-btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+    padding: 8px 10px;
+  }
+  .rs-btn-ghost:hover { background: var(--surface-3); color: var(--ocean-600); }
+  .rs-btn-icon {
+    width: 36px; height: 36px;
+    padding: 0;
+    border-radius: 10px;
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+  }
+  .rs-btn-icon:hover { background: var(--ocean-50); color: var(--ocean-500); border-color: var(--ocean-200); }
+  .rs-btn-sm { padding: 7px 13px; font-size: 12px; }
+
+  .rs-filter-group {
+    display: flex;
+    gap: 4px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+  }
+  .rs-filter-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: transparent;
+    color: var(--text-secondary);
+    font-family: inherit;
+  }
+  .rs-filter-btn.active {
+    background: var(--surface);
+    color: var(--ocean-600);
+    box-shadow: 0 1px 3px rgba(18, 90, 150, 0.12);
+    font-weight: 600;
+  }
+
+  .rs-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+  .rs-tag-ocean { background: var(--ocean-50); color: var(--ocean-700); border-color: var(--ocean-200); }
+  .rs-tag-blue { background: #e8f4fd; color: #125a96; border-color: #9dd0f2; }
+  .rs-tag-amber { background: #fef3e2; color: #9a5000; border-color: #f9c95c; }
+  .rs-tag-ocean.active, .rs-tag-blue.active { background: var(--ocean-500); color: white; border-color: var(--ocean-500); }
+
+  .rs-recipe-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  .rs-recipe-card {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .rs-recipe-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(18, 90, 150, 0.14);
+    border-color: var(--border-md);
+  }
+  .rs-recipe-img-wrap { position: relative; }
+  .rs-recipe-img { width: 100%; height: 130px; object-fit: cover; display: block; }
+  .rs-recipe-fav {
+    position: absolute; top: 8px; right: 8px;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.92);
+    display: flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: transform 0.15s;
+  }
+  .rs-recipe-fav:hover { transform: scale(1.15); }
+  .rs-recipe-kcal {
+    position: absolute; bottom: 8px; left: 8px;
+    background: rgba(4, 30, 58, 0.72);
+    color: white;
+    font-size: 11px; font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 20px;
+    display: flex; align-items: center; gap: 3px;
+    backdrop-filter: blur(4px);
+  }
+  .rs-recipe-body { padding: 12px; }
+  .rs-recipe-name { font-size: 13px; font-weight: 600; margin: 0 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rs-recipe-cat { font-size: 11px; color: var(--text-muted); margin: 0; }
+
+  .rs-sub-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
+  }
+  .rs-sub-tab {
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    font-family: inherit;
+    display: flex; align-items: center; gap: 5px;
+    margin-bottom: -1px;
+  }
+  .rs-sub-tab.active { color: var(--ocean-500); border-bottom-color: var(--ocean-500); font-weight: 600; }
+  .rs-sub-tab:hover:not(.active) { color: var(--ocean-400); background: var(--ocean-50); border-radius: 8px 8px 0 0; }
+
+  .rs-section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 10px;
+  }
+
+  .rs-input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    font-size: 14px;
+    font-family: inherit;
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+  }
+  .rs-input:focus {
+    border-color: var(--ocean-400);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px rgba(46, 144, 217, 0.1);
+  }
+  .rs-input::placeholder { color: var(--text-muted); }
+
+  .rs-select {
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    font-size: 13px;
+    font-family: inherit;
+    color: var(--text-primary);
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .rs-select:focus { border-color: var(--ocean-400); box-shadow: 0 0 0 3px rgba(46, 144, 217, 0.1); }
+
+  .rs-progress-bar {
+    height: 6px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+  .rs-progress-fill {
+    height: 100%;
+    background: rgba(255,255,255,0.9);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+  }
+
+  .rs-weekday-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    margin-bottom: 10px;
+  }
+  .rs-meal-slot {
+    border: 1.5px dashed var(--border-md);
+    border-radius: var(--radius-md);
+    padding: 10px;
+    text-align: center;
+    min-height: 80px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: all 0.15s;
+    cursor: pointer;
+  }
+  .rs-meal-slot:hover { border-color: var(--ocean-300); background: var(--ocean-50); }
+  .rs-meal-slot.filled { border-style: solid; border-color: var(--ocean-200); background: var(--ocean-50); padding: 6px; }
+
+  .rs-entry-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: background 0.12s;
+  }
+  .rs-entry-row:hover { background: var(--surface-3); }
+
+  .rs-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 11px; font-weight: 500;
+    white-space: nowrap;
+  }
+  .rs-badge-ocean { background: var(--ocean-50); color: var(--ocean-700); }
+  .rs-badge-amber { background: #fef3e2; color: #7a3e00; }
+  .rs-badge-red { background: #fef0f0; color: #b91c1c; }
+  .rs-badge-green { background: #edf7ed; color: #166534; }
+
+  .rs-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px; font-weight: 500;
+    background: var(--ocean-500);
+    color: white;
+  }
+  .rs-chip-ghost {
+    background: var(--ocean-50);
+    color: var(--ocean-700);
+    border: 1px solid var(--ocean-200);
+  }
+
+  .rs-empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 48px 24px;
+    color: var(--text-muted);
+    text-align: center;
+    gap: 12px;
+  }
+
+  .rs-modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(4, 30, 58, 0.55);
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50;
+    padding: 16px;
+  }
+  .rs-modal {
+    background: var(--surface);
+    border-radius: var(--radius-xl);
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    box-shadow: 0 24px 64px rgba(4, 30, 58, 0.25);
+  }
+  .rs-modal-inner { padding: 24px; }
+
+  .rs-lunchbox-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    transition: all 0.18s;
+  }
+  .rs-lunchbox-card:hover { box-shadow: 0 4px 16px rgba(18, 90, 150, 0.1); border-color: var(--border-md); }
+
+  .rs-star { cursor: pointer; transition: transform 0.1s; }
+  .rs-star:hover { transform: scale(1.2); }
+
+  .rs-skeleton {
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 50%, var(--surface-2) 75%);
+    background-size: 200% 100%;
+    animation: rs-shimmer 1.4s infinite;
+    border-radius: var(--radius-sm);
+  }
+  @keyframes rs-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+  .rs-divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+  .rs-label { font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px; display: block; }
+`;
+
 // ============== HELPER FUNCTIONS ==============
 const getSeasonalTips = (): AITip[] => {
   const month = new Date().getMonth();
@@ -82,7 +556,6 @@ const getSeasonalTips = (): AITip[] => {
   return tips;
 };
 
-// Kalorien-Rechner
 const calculateDailyCalories = (profile: UserProfile): number => {
   let bmr;
   if (profile.gender === 'male') {
@@ -90,21 +563,14 @@ const calculateDailyCalories = (profile: UserProfile): number => {
   } else {
     bmr = 447.593 + 9.247 * profile.weight + 3.098 * profile.height - 4.33 * profile.age;
   }
-
   const activityMultipliers = {
-    sedentary: 1.2,
-    light: 1.375,
-    moderate: 1.55,
-    active: 1.725,
-    very_active: 1.9,
+    sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9,
   };
-
   const tdee = bmr * activityMultipliers[profile.activityLevel];
   const weeklyDeficit = ((profile.weight - profile.goalWeight) * 7700) / (profile.goalMonths * 4.33);
   return Math.round(tdee - weeklyDeficit / 7);
 };
 
-// Brotzeit-Vorschläge
 const BROTZEIT_SUGGESTIONS: Record<string, { name: string; ingredients: string[]; calories: number; healthy: boolean }[]> = {
   child: [
     { name: 'Obst-Teller mit Käse', ingredients: ['Äpfel', 'Trauben', 'Käse-Würfel', 'Karottenstifte'], calories: 250, healthy: true },
@@ -129,7 +595,6 @@ interface RecipeSearchProps {
 }
 
 const RecipeSearch: React.FC<RecipeSearchProps> = ({ onAddToShoppingList }) => {
-  // State
   const [activeTab, setActiveTab] = useState<'search' | 'weekplan' | 'calories' | 'lunchbox' | 'custom' | 'whatcanicook'>('search');
   const [searchQuery, setSearchQuery] = useState('');
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -139,83 +604,55 @@ const RecipeSearch: React.FC<RecipeSearchProps> = ({ onAddToShoppingList }) => {
   const [favoritesRecipes, setFavoritesRecipes] = useState<Recipe[]>([]);
   const [showFavorites, setShowFavorites] = useState(false);
 
-  // Weekplan
   const [weekPlan, setWeekPlan] = useState<WeekPlan[]>([]);
-
-  // Calorie Tracker
   const [calorieEntries, setCalorieEntries] = useState<CalorieEntry[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile>({
-    age: 30,
-    gender: 'male',
-    weight: 80,
-    height: 180,
-    activityLevel: 'moderate',
-    goalWeight: 75,
-    goalMonths: 3,
+    age: 30, gender: 'male', weight: 80, height: 180,
+    activityLevel: 'moderate', goalWeight: 75, goalMonths: 3,
   });
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [newCalorieEntry, setNewCalorieEntry] = useState({ food: '', calories: '', mealType: 'snack' as const });
-  const [manualCalories, setManualCalories] = useState(0);
 
-  // Lunchbox
   const [lunchboxAge, setLunchboxAge] = useState<'child' | 'teen' | 'adult'>('adult');
   const [showHealthyOnly, setShowHealthyOnly] = useState(false);
 
-  // Custom Recipe
   const [customRecipes, setCustomRecipes] = useState<CustomRecipe[]>([]);
   const [newCustomRecipe, setNewCustomRecipe] = useState<Partial<CustomRecipe>>({
-    name: '',
-    ingredients: [],
-    instructions: '',
-    calories: 0,
-    rating: 0,
-    tags: [],
+    name: '', ingredients: [], instructions: '', calories: 0, rating: 0, tags: [],
   });
   const [ingredientInput, setIngredientInput] = useState('');
 
-  // What Can I Cook
   const [availableIngredients, setAvailableIngredients] = useState<string[]>([]);
   const [ingredientSearch, setIngredientSearch] = useState('');
   const [cookableRecipes, setCookableRecipes] = useState<Recipe[]>([]);
 
-  // Filter
   const [dietFilter, setDietFilter] = useState<'all' | 'vegan' | 'vegetarian'>('all');
   const [intoleranceFilter, setIntoleranceFilter] = useState<{ lactose: boolean; gluten: boolean }>({
-    lactose: false,
-    gluten: false,
+    lactose: false, gluten: false,
   });
 
   const weekDays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
   const mealTypes = ['breakfast', 'lunch', 'dinner'] as const;
   const mealLabels = { breakfast: 'Frühstück', lunch: 'Mittag', dinner: 'Abendessen' };
 
-  // Load data from localStorage
   useEffect(() => {
     const savedFavorites = localStorage.getItem('recipeFavorites');
     if (savedFavorites) setFavorites(JSON.parse(savedFavorites));
-
     const savedWeekPlan = localStorage.getItem('weekPlan');
     if (savedWeekPlan) setWeekPlan(JSON.parse(savedWeekPlan));
     else setWeekPlan(weekDays.map((day) => ({ day })));
-
     const savedCalories = localStorage.getItem('calorieEntries');
     if (savedCalories) setCalorieEntries(JSON.parse(savedCalories));
-
     const savedProfile = localStorage.getItem('userProfile');
     if (savedProfile) setUserProfile(JSON.parse(savedProfile));
-
     const savedCustom = localStorage.getItem('customRecipes');
     if (savedCustom) setCustomRecipes(JSON.parse(savedCustom));
   }, []);
 
-  // Calculate today's calories
   const todayStr = new Date().toISOString().split('T')[0];
-  const todayCalories = calorieEntries
-    .filter(e => e.date === todayStr)
-    .reduce((sum, e) => sum + e.calories, 0);
+  const todayCalories = calorieEntries.filter(e => e.date === todayStr).reduce((sum, e) => sum + e.calories, 0);
   const recommendedCalories = calculateDailyCalories(userProfile);
 
-  // ============== FUNCTIONS ==============
   const searchRecipes = async (query: string) => {
     if (!query.trim()) { setRecipes([]); return; }
     setLoading(true);
@@ -223,32 +660,23 @@ const RecipeSearch: React.FC<RecipeSearchProps> = ({ onAddToShoppingList }) => {
       let url = `https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(query)}`;
       if (dietFilter === 'vegetarian') url = `https://www.themealdb.com/api/json/v1/1/filter.php?c=Vegetarian`;
       if (dietFilter === 'vegan') url = `https://www.themealdb.com/api/json/v1/1/filter.php?c=Vegan`;
-
       const response = await fetch(url);
       const data = await response.json();
       let results = data.meals || [];
-
-      // Apply intolerance filters locally
       if (intoleranceFilter.gluten) {
         results = results.filter((r: Recipe) => {
-          const ingredients = getIngredientsList(r);
-          return !ingredients.some(i => i.toLowerCase().includes('wheat') || i.toLowerCase().includes('bread') || i.toLowerCase().includes('pasta'));
+          const ings = getIngredientsList(r);
+          return !ings.some(i => i.toLowerCase().includes('wheat') || i.toLowerCase().includes('bread') || i.toLowerCase().includes('pasta'));
         });
       }
       if (intoleranceFilter.lactose) {
         results = results.filter((r: Recipe) => {
-          const ingredients = getIngredientsList(r);
-          return !ingredients.some(i => i.toLowerCase().includes('milk') || i.toLowerCase().includes('cheese') || i.toLowerCase().includes('cream'));
+          const ings = getIngredientsList(r);
+          return !ings.some(i => i.toLowerCase().includes('milk') || i.toLowerCase().includes('cheese') || i.toLowerCase().includes('cream'));
         });
       }
-
       setRecipes(results);
-    } catch (error) {
-      console.error('Fehler beim Laden:', error);
-      setRecipes([]);
-    } finally {
-      setLoading(false);
-    }
+    } catch { setRecipes([]); } finally { setLoading(false); }
   };
 
   const getIngredients = (recipe: Recipe): string[] => {
@@ -256,9 +684,7 @@ const RecipeSearch: React.FC<RecipeSearchProps> = ({ onAddToShoppingList }) => {
     for (let i = 1; i <= 20; i++) {
       const ingredient = recipe[`strIngredient${i}`];
       const measure = recipe[`strMeasure${i}`];
-      if (ingredient?.trim()) {
-        ingredients.push(`${measure || ''} ${ingredient}`.trim());
-      }
+      if (ingredient?.trim()) ingredients.push(`${measure || ''} ${ingredient}`.trim());
     }
     return ingredients;
   };
@@ -267,9 +693,7 @@ const RecipeSearch: React.FC<RecipeSearchProps> = ({ onAddToShoppingList }) => {
     const ingredients: string[] = [];
     for (let i = 1; i <= 20; i++) {
       const ingredient = recipe[`strIngredient${i}`];
-      if (ingredient?.trim()) {
-        ingredients.push(ingredient.trim());
-      }
+      if (ingredient?.trim()) ingredients.push(ingredient.trim());
     }
     return ingredients;
   };
@@ -292,39 +716,26 @@ const RecipeSearch: React.FC<RecipeSearchProps> = ({ onAddToShoppingList }) => {
       : [...favorites, recipeId];
     setFavorites(newFavorites);
     localStorage.setItem('recipeFavorites', JSON.stringify(newFavorites));
-    // Update favoritesRecipes when toggling
     if (newFavorites.includes(recipeId)) {
       const recipe = recipes.find(r => r.idMeal === recipeId);
-      if (recipe) {
-        setFavoritesRecipes(prev => [...prev.filter(r => r.idMeal !== recipeId), recipe]);
-      }
+      if (recipe) setFavoritesRecipes(prev => [...prev.filter(r => r.idMeal !== recipeId), recipe]);
     } else {
       setFavoritesRecipes(prev => prev.filter(r => r.idMeal !== recipeId));
     }
   };
 
-  // Load favorites recipes when switching to favorites tab
   const loadFavoritesRecipes = async () => {
-    if (favorites.length === 0) {
-      setFavoritesRecipes([]);
-      return;
-    }
+    if (favorites.length === 0) { setFavoritesRecipes([]); return; }
     setLoading(true);
     try {
       const loadedRecipes: Recipe[] = [];
       for (const id of favorites) {
         const response = await fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${id}`);
         const data = await response.json();
-        if (data.meals?.[0]) {
-          loadedRecipes.push(data.meals[0]);
-        }
+        if (data.meals?.[0]) loadedRecipes.push(data.meals[0]);
       }
       setFavoritesRecipes(loadedRecipes);
-    } catch (error) {
-      console.error('Fehler beim Laden der Favoriten:', error);
-    } finally {
-      setLoading(false);
-    }
+    } catch {} finally { setLoading(false); }
   };
 
   const loadRecipeDetails = async (id: string) => {
@@ -332,9 +743,7 @@ const RecipeSearch: React.FC<RecipeSearchProps> = ({ onAddToShoppingList }) => {
       const response = await fetch(`https://www.themealdb.com/api/json/v1/1/lookup.php?i=${id}`);
       const data = await response.json();
       if (data.meals?.[0]) setSelectedRecipe(data.meals[0]);
-    } catch (error) {
-      console.error('Fehler beim Laden:', error);
-    }
+    } catch {}
   };
 
   const addToWeekPlan = (recipe: Recipe, dayIndex: number, mealType: 'breakfast' | 'lunch' | 'dinner') => {
@@ -376,29 +785,19 @@ const RecipeSearch: React.FC<RecipeSearchProps> = ({ onAddToShoppingList }) => {
 
   const processVoiceCalories = (text: string) => {
     const match = text.match(/(\d+)\s*(kalorien|cal|kcal)/i);
-    if (match) {
-      setNewCalorieEntry(prev => ({ ...prev, calories: match[1] }));
-    }
+    if (match) setNewCalorieEntry(prev => ({ ...prev, calories: match[1] }));
     const foodName = text.replace(/\d+\s*(kalorien|cal|kcal)/gi, '').trim();
-    if (foodName) {
-      setNewCalorieEntry(prev => ({ ...prev, food: foodName }));
-    }
+    if (foodName) setNewCalorieEntry(prev => ({ ...prev, food: foodName }));
   };
 
   const addIngredientToCustom = () => {
     if (!ingredientInput.trim()) return;
-    setNewCustomRecipe(prev => ({
-      ...prev,
-      ingredients: [...(prev.ingredients || []), ingredientInput.trim()],
-    }));
+    setNewCustomRecipe(prev => ({ ...prev, ingredients: [...(prev.ingredients || []), ingredientInput.trim()] }));
     setIngredientInput('');
   };
 
   const removeIngredientFromCustom = (index: number) => {
-    setNewCustomRecipe(prev => ({
-      ...prev,
-      ingredients: prev.ingredients?.filter((_, i) => i !== index),
-    }));
+    setNewCustomRecipe(prev => ({ ...prev, ingredients: prev.ingredients?.filter((_, i) => i !== index) }));
   };
 
   const saveCustomRecipe = () => {
@@ -426,29 +825,19 @@ const RecipeSearch: React.FC<RecipeSearchProps> = ({ onAddToShoppingList }) => {
       for (const ingredient of availableIngredients.slice(0, 5)) {
         const response = await fetch(`https://www.themealdb.com/api/json/v1/1/filter.php?i=${encodeURIComponent(ingredient)}`);
         const data = await response.json();
-        if (data.meals) {
-          allMatches.push(...data.meals);
-        }
+        if (data.meals) allMatches.push(...data.meals);
       }
       const recipeCounts = allMatches.reduce((acc: Record<string, { recipe: Recipe; count: number }>, recipe) => {
-        if (!acc[recipe.idMeal]) {
-          acc[recipe.idMeal] = { recipe, count: 0 };
-        }
+        if (!acc[recipe.idMeal]) acc[recipe.idMeal] = { recipe, count: 0 };
         acc[recipe.idMeal].count++;
         return acc;
       }, {});
-
       const sorted = Object.values(recipeCounts)
         .sort((a, b) => b.count - a.count)
         .slice(0, 10)
         .map(item => item.recipe);
-
       setCookableRecipes(sorted);
-    } catch (error) {
-      console.error('Fehler:', error);
-    } finally {
-      setLoading(false);
-    }
+    } catch {} finally { setLoading(false); }
   };
 
   const getLunchboxSuggestions = () => {
@@ -457,275 +846,308 @@ const RecipeSearch: React.FC<RecipeSearchProps> = ({ onAddToShoppingList }) => {
   };
 
   const displayedRecipes = showFavorites ? favoritesRecipes : recipes;
+  const progressPct = Math.min(100, Math.round((todayCalories / recommendedCalories) * 100));
+
+  const tabs = [
+    { id: 'search', icon: Search, label: 'Suche' },
+    { id: 'weekplan', icon: Calendar, label: 'Plan' },
+    { id: 'calories', icon: Flame, label: 'Kalorien' },
+    { id: 'lunchbox', icon: ChefHat, label: 'Brotzeit' },
+    { id: 'custom', icon: Edit2, label: 'Eigene' },
+    { id: 'whatcanicook', icon: Lightbulb, label: 'Was kochen?' },
+  ];
 
   return (
-    <div className="space-y-4">
-      {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg overflow-x-auto">
-        {[
-          { id: 'search', icon: Search, label: 'Suche' },
-          { id: 'weekplan', icon: Calendar, label: 'Plan' },
-          { id: 'calories', icon: Flame, label: 'Kalorien' },
-          { id: 'lunchbox', icon: ChefHat, label: 'Brotzeit' },
-          { id: 'custom', icon: Edit2, label: 'Eigene' },
-          { id: 'whatcanicook', icon: Lightbulb, label: 'Was kochen?' },
-        ].map(({ id, icon: Icon, label }) => (
+    <div className="rs-root" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <style>{globalStyles}</style>
+
+      {/* TAB BAR */}
+      <div className="rs-tab-bar">
+        {tabs.map(({ id, icon: Icon, label }) => (
           <button
             key={id}
+            className={`rs-tab ${activeTab === id ? 'active' : ''}`}
             onClick={() => setActiveTab(id as any)}
-            className={`flex-1 py-2 px-2 text-xs font-medium rounded-md transition-colors flex items-center justify-center gap-1 whitespace-nowrap ${
-              activeTab === id
-                ? 'bg-white text-ocean-primary shadow-sm'
-                : 'text-text-secondary hover:text-foreground'
-            }`}
           >
-            <Icon size={14} />
+            <Icon size={13} />
             {label}
           </button>
         ))}
       </div>
 
-      {/* SEARCH TAB */}
+      {/* ── SEARCH TAB ── */}
       {activeTab === 'search' && (
         <>
-          <Card className="p-4">
-            <div className="flex gap-2 mb-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" size={18} />
-                <Input
-                  placeholder="Rezept suchen..."
+          {/* Search bar */}
+          <div className="rs-card">
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+              <div className="rs-search-wrap" style={{ flex: 1 }}>
+                <Search size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                <input
+                  className="rs-search-input"
+                  placeholder="Rezept suchen…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && searchRecipes(searchQuery)}
                 />
               </div>
               <VoiceInput onResult={(text) => { setSearchQuery(text); searchRecipes(text); }} placeholder="Spracheingabe" />
-              <Button onClick={() => searchRecipes(searchQuery)}>Suchen</Button>
+              <button className="rs-btn rs-btn-primary" onClick={() => searchRecipes(searchQuery)}>
+                <Search size={14} /> Suchen
+              </button>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-                {(['all', 'vegetarian', 'vegan'] as const).map(filter => (
+
+            {/* Filters row */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+              <div className="rs-filter-group">
+                {(['all', 'vegetarian', 'vegan'] as const).map(f => (
                   <button
-                    key={filter}
-                    onClick={() => { setDietFilter(filter); searchRecipes(searchQuery); }}
-                    className={`px-3 py-1 text-xs rounded-md ${
-                      dietFilter === filter ? 'bg-white text-ocean-primary' : 'text-text-secondary'
-                    }`}
+                    key={f}
+                    className={`rs-filter-btn ${dietFilter === f ? 'active' : ''}`}
+                    onClick={() => { setDietFilter(f); searchRecipes(searchQuery); }}
                   >
-                    {filter === 'all' ? 'Alle' : filter === 'vegetarian' ? 'Vegetarisch' : 'Vegan'}
+                    {f === 'all' ? 'Alle' : f === 'vegetarian' ? 'Vegetarisch' : 'Vegan'}
                   </button>
                 ))}
               </div>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setIntoleranceFilter(prev => ({ ...prev, lactose: !prev.lactose }))}
-                  className={`px-3 py-1 text-xs rounded-lg flex items-center gap-1 ${
-                    intoleranceFilter.lactose ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  <Milk size={12} /> Laktosefrei
-                </button>
-                <button
-                  onClick={() => setIntoleranceFilter(prev => ({ ...prev, gluten: !prev.gluten }))}
-                  className={`px-3 py-1 text-xs rounded-lg flex items-center gap-1 ${
-                    intoleranceFilter.gluten ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  <Wheat size={12} /> Glutenfrei
-                </button>
-              </div>
+              <button
+                className={`rs-tag ${intoleranceFilter.lactose ? 'rs-tag-blue active' : 'rs-tag-blue'}`}
+                onClick={() => setIntoleranceFilter(prev => ({ ...prev, lactose: !prev.lactose }))}
+              >
+                <Milk size={11} /> Laktosefrei
+              </button>
+              <button
+                className={`rs-tag ${intoleranceFilter.gluten ? 'rs-tag-amber active' : 'rs-tag-amber'}`}
+                onClick={() => setIntoleranceFilter(prev => ({ ...prev, gluten: !prev.gluten }))}
+              >
+                <Wheat size={11} /> Glutenfrei
+              </button>
             </div>
-          </Card>
+          </div>
 
-          <div className="flex gap-2 border-b border-border">
-            <button
-              onClick={() => setShowFavorites(false)}
-              className={`pb-2 px-1 text-sm font-medium ${!showFavorites ? 'text-ocean-primary border-b-2 border-ocean-primary' : 'text-text-secondary'}`}
-            >
+          {/* Sub-tabs */}
+          <div className="rs-sub-tabs">
+            <button className={`rs-sub-tab ${!showFavorites ? 'active' : ''}`} onClick={() => setShowFavorites(false)}>
               Alle Rezepte
             </button>
             <button
+              className={`rs-sub-tab ${showFavorites ? 'active' : ''}`}
               onClick={() => { setShowFavorites(true); loadFavoritesRecipes(); }}
-              className={`pb-2 px-1 text-sm font-medium flex items-center gap-1 ${showFavorites ? 'text-ocean-primary border-b-2 border-ocean-primary' : 'text-text-secondary'}`}
             >
-              <Heart size={14} className={showFavorites ? 'fill-current' : ''} />
-              Favoriten ({favorites.length})
+              <Heart size={13} style={{ fill: showFavorites ? 'currentColor' : 'none' }} />
+              Favoriten <span style={{ opacity: 0.6 }}>({favorites.length})</span>
             </button>
           </div>
 
+          {/* Recipe grid */}
           {loading ? (
-            <div className="grid grid-cols-2 gap-4">
-              {[1, 2, 3, 4].map(i => <Card key={i} className="p-0"><div className="h-32 skeleton" /><div className="p-3"><div className="h-4 skeleton w-3/4" /></div></Card>)}
+            <div className="rs-recipe-grid">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+                  <div className="rs-skeleton" style={{ height: 130 }} />
+                  <div style={{ padding: '12px' }}>
+                    <div className="rs-skeleton" style={{ height: 14, width: '75%', marginBottom: 6 }} />
+                    <div className="rs-skeleton" style={{ height: 11, width: '45%' }} />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : displayedRecipes.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="rs-recipe-grid">
               {displayedRecipes.map(recipe => (
-                <Card
-                  key={recipe.idMeal}
-                  className="p-0 overflow-hidden cursor-pointer hover:shadow-card-hover"
-                  onClick={() => loadRecipeDetails(recipe.idMeal)}
-                >
-                  <div className="relative">
-                    <img src={recipe.strMealThumb} alt={recipe.strMeal} className="w-full h-32 object-cover" />
+                <div key={recipe.idMeal} className="rs-recipe-card" onClick={() => loadRecipeDetails(recipe.idMeal)}>
+                  <div className="rs-recipe-img-wrap">
+                    <img src={recipe.strMealThumb} alt={recipe.strMeal} className="rs-recipe-img" />
                     <button
+                      className="rs-recipe-fav"
                       onClick={(e) => { e.stopPropagation(); toggleFavorite(recipe.idMeal); }}
-                      className="absolute top-2 right-2 p-1.5 rounded-full bg-white/90"
                     >
-                      <Heart size={16} className={favorites.includes(recipe.idMeal) ? 'fill-red-500 text-red-500' : 'text-gray-500'} />
+                      <Heart
+                        size={14}
+                        style={{ color: favorites.includes(recipe.idMeal) ? '#e53e3e' : '#8aa4bb',
+                          fill: favorites.includes(recipe.idMeal) ? '#e53e3e' : 'none' }}
+                      />
                     </button>
-                    <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Flame size={12} />~{estimateCalories(recipe)} kcal
+                    <div className="rs-recipe-kcal">
+                      <Flame size={10} />~{estimateCalories(recipe)} kcal
                     </div>
                   </div>
-                  <div className="p-3">
-                    <h3 className="font-medium text-sm truncate">{recipe.strMeal}</h3>
-                    {recipe.strCategory && <p className="text-xs text-text-secondary">{recipe.strCategory}</p>}
+                  <div className="rs-recipe-body">
+                    <p className="rs-recipe-name">{recipe.strMeal}</p>
+                    {recipe.strCategory && <p className="rs-recipe-cat">{recipe.strCategory}</p>}
                   </div>
-                </Card>
+                </div>
               ))}
             </div>
           ) : (
-            <Card className="text-center py-8">
-              <Utensils size={48} className="mx-auto text-text-secondary opacity-50 mb-3" />
-              <p className="text-text-secondary">
-                {showFavorites ? 'Keine Favoriten' : searchQuery ? 'Keine Ergebnisse' : 'Suche nach Rezepten'}
-              </p>
-            </Card>
+            <div className="rs-empty">
+              <Utensils size={40} style={{ opacity: 0.25 }} />
+              <div>
+                <p style={{ fontWeight: 500, marginBottom: 4 }}>
+                  {showFavorites ? 'Keine Favoriten' : searchQuery ? 'Keine Ergebnisse gefunden' : 'Rezept eingeben und suchen'}
+                </p>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                  {!searchQuery && !showFavorites ? 'Suche nach Zutaten, Kategorien oder Gerichtnamen.' : ''}
+                </p>
+              </div>
+            </div>
           )}
         </>
       )}
 
-      {/* WEEKPLAN TAB */}
+      {/* ── WEEKPLAN TAB ── */}
       {activeTab === 'weekplan' && (
         <>
-          <Card className="bg-gradient-to-r from-ocean-primary to-ocean-dark text-white p-4">
-            <div className="flex justify-between items-center">
+          <div className="rs-hero-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 1 }}>
               <div>
-                <p className="text-sm text-white/80">Woche</p>
-                <p className="text-2xl font-bold">{weekPlan.reduce((s, d) => s + getDayCalories(d), 0).toLocaleString()} kcal</p>
+                <p style={{ fontSize: 12, opacity: 0.7, margin: '0 0 4px', fontWeight: 500, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Diese Woche</p>
+                <p style={{ fontSize: 32, fontWeight: 700, margin: 0, fontFamily: 'DM Serif Display, serif', letterSpacing: '-0.02em' }}>
+                  {weekPlan.reduce((s, d) => s + getDayCalories(d), 0).toLocaleString()} kcal
+                </p>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-white/80">Ø/Tag</p>
-                <p className="text-xl">{Math.round(weekPlan.reduce((s, d) => s + getDayCalories(d), 0) / 7)} kcal</p>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ fontSize: 12, opacity: 0.6, margin: '0 0 2px' }}>Ø pro Tag</p>
+                <p style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>
+                  {Math.round(weekPlan.reduce((s, d) => s + getDayCalories(d), 0) / 7)} kcal
+                </p>
               </div>
             </div>
-          </Card>
+          </div>
 
           {weekPlan.map((dayPlan, dayIndex) => (
-            <Card key={dayIndex}>
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-medium">{dayPlan.day}</h3>
-                <span className="text-sm text-ocean-primary">{getDayCalories(dayPlan)} kcal</span>
+            <div className="rs-weekday-card" key={dayIndex}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>{dayPlan.day}</h3>
+                {getDayCalories(dayPlan) > 0 && (
+                  <span className="rs-badge rs-badge-ocean">
+                    <Flame size={11} />{getDayCalories(dayPlan)} kcal
+                  </span>
+                )}
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
                 {mealTypes.map(mealType => {
                   const meal = dayPlan[mealType];
                   return (
-                    <div
-                      key={mealType}
-                      className={`border-2 border-dashed rounded-lg p-2 text-center ${meal ? 'border-ocean-primary bg-ocean-primary/5' : 'border-gray-200'}`}
-                    >
+                    <div key={mealType} className={`rs-meal-slot ${meal ? 'filled' : ''}`}>
                       {meal ? (
-                        <div className="relative">
-                          <img src={meal.strMealThumb} alt={meal.strMeal} className="w-full h-16 object-cover rounded-md mb-1" />
+                        <div style={{ width: '100%', position: 'relative' }}>
+                          <img src={meal.strMealThumb} alt={meal.strMeal}
+                            style={{ width: '100%', height: 64, objectFit: 'cover', borderRadius: 8, display: 'block' }} />
                           <button
                             onClick={() => removeFromWeekPlan(dayIndex, mealType)}
-                            className="absolute -top-1 -right-1 p-1 bg-red-500 text-white rounded-full"
+                            style={{
+                              position: 'absolute', top: -4, right: -4,
+                              width: 18, height: 18, borderRadius: '50%',
+                              background: '#e53e3e', border: 'none', cursor: 'pointer',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white'
+                            }}
                           >
                             <X size={10} />
                           </button>
-                          <p className="text-xs font-medium truncate">{meal.strMeal}</p>
-                          <p className="text-xs text-text-secondary">{estimateCalories(meal)} kcal</p>
+                          <p style={{ fontSize: 11, fontWeight: 600, margin: '6px 0 0', textAlign: 'center',
+                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {meal.strMeal}
+                          </p>
                         </div>
                       ) : (
                         <button
-                          onClick={() => { setActiveTab('search'); }}
-                          className="w-full h-full flex flex-col items-center justify-center text-text-secondary hover:text-ocean-primary"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}
+                          onClick={() => setActiveTab('search')}
                         >
-                          <Plus size={20} />
-                          <span className="text-xs">{mealLabels[mealType]}</span>
+                          <Plus size={18} />
+                          <span style={{ fontSize: 11, fontWeight: 500 }}>{mealLabels[mealType]}</span>
                         </button>
                       )}
                     </div>
                   );
                 })}
               </div>
-            </Card>
+            </div>
           ))}
         </>
       )}
 
-      {/* CALORIES TAB */}
+      {/* ── CALORIES TAB ── */}
       {activeTab === 'calories' && (
         <>
-          <Card className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-4">
-            <div className="text-center">
-              <p className="text-sm text-white/80">Heute gegessen</p>
-              <p className="text-4xl font-bold">{todayCalories}</p>
-              <p className="text-sm text-white/60">von {recommendedCalories} kcal empfohlen</p>
-              <div className="mt-3 bg-white/20 rounded-full h-3">
-                <div
-                  className="bg-white rounded-full h-3 transition-all"
-                  style={{ width: `${Math.min(100, (todayCalories / recommendedCalories) * 100)}%` }}
-                />
+          {/* Hero calorie tracker */}
+          <div className="rs-hero-card">
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <p style={{ fontSize: 12, opacity: 0.7, margin: '0 0 4px', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Heute gegessen</p>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                <p style={{ fontSize: 48, fontWeight: 700, margin: 0, fontFamily: 'DM Serif Display, serif', letterSpacing: '-0.02em', lineHeight: 1 }}>
+                  {todayCalories}
+                </p>
+                <p style={{ fontSize: 16, opacity: 0.6, margin: 0 }}>/ {recommendedCalories} kcal</p>
               </div>
-              <p className="text-xs mt-1">{recommendedCalories - todayCalories} kcal übrig</p>
+              <div className="rs-progress-bar">
+                <div className="rs-progress-fill" style={{ width: `${progressPct}%` }} />
+              </div>
+              <p style={{ fontSize: 12, opacity: 0.65, margin: '8px 0 0' }}>
+                {recommendedCalories - todayCalories > 0
+                  ? `Noch ${recommendedCalories - todayCalories} kcal übrig`
+                  : `${todayCalories - recommendedCalories} kcal über dem Limit`}
+              </p>
             </div>
-          </Card>
+          </div>
 
-          <Card className="p-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm text-text-secondary">Tagesbedarf</p>
-                <p className="text-lg font-bold">{recommendedCalories} kcal</p>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => setShowProfileModal(true)}>
-                <Edit2 size={16} /> Anpassen
-              </Button>
+          {/* Tagesbedarf card */}
+          <div className="rs-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <p className="rs-section-label" style={{ margin: '0 0 4px' }}>Tagesbedarf</p>
+              <p style={{ fontSize: 22, fontWeight: 700, margin: 0, color: 'var(--ocean-600)', fontFamily: 'DM Serif Display, serif' }}>
+                {recommendedCalories} kcal
+              </p>
             </div>
-          </Card>
+            <button className="rs-btn rs-btn-secondary rs-btn-sm" onClick={() => setShowProfileModal(true)}>
+              <Edit2 size={13} /> Anpassen
+            </button>
+          </div>
 
-          <Card className="p-4">
-            <h3 className="font-medium mb-3">Kalorien hinzufügen</h3>
-            <div className="flex gap-2 mb-2">
-              <div className="flex-1">
-                <Input
-                  placeholder="Lebensmittel..."
-                  value={newCalorieEntry.food}
-                  onChange={(e) => setNewCalorieEntry({ ...newCalorieEntry, food: e.target.value })}
-                />
-              </div>
+          {/* Add entry */}
+          <div className="rs-card">
+            <p className="rs-section-label">Kalorien hinzufügen</p>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+              <input className="rs-input" placeholder="Lebensmittel…"
+                value={newCalorieEntry.food}
+                onChange={(e) => setNewCalorieEntry({ ...newCalorieEntry, food: e.target.value })}
+                style={{ flex: 1 }}
+              />
               <VoiceInput onResult={processVoiceCalories} placeholder="Spracheingabe" />
             </div>
-            <div className="flex gap-2 mb-2">
-              <div className="flex-1">
-                <Input
-                  placeholder="Kalorien"
-                  type="number"
-                  value={newCalorieEntry.calories}
-                  onChange={(e) => setNewCalorieEntry({ ...newCalorieEntry, calories: e.target.value })}
-                />
-              </div>
-              <select
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input className="rs-input" placeholder="Kalorien" type="number"
+                value={newCalorieEntry.calories}
+                onChange={(e) => setNewCalorieEntry({ ...newCalorieEntry, calories: e.target.value })}
+                style={{ flex: 1 }}
+              />
+              <select className="rs-select"
                 value={newCalorieEntry.mealType}
                 onChange={(e) => setNewCalorieEntry({ ...newCalorieEntry, mealType: e.target.value as any })}
-                className="px-3 py-2 border rounded-lg"
               >
                 <option value="breakfast">Frühstück</option>
                 <option value="lunch">Mittag</option>
                 <option value="dinner">Abendessen</option>
                 <option value="snack">Snack</option>
               </select>
-              <Button onClick={addCalorieEntry}><Plus size={18} /></Button>
+              <button className="rs-btn rs-btn-primary" style={{ padding: '10px 14px' }} onClick={addCalorieEntry}>
+                <Plus size={16} />
+              </button>
             </div>
-          </Card>
+          </div>
 
-          <Card className="p-4">
-            <h3 className="font-medium mb-3">Heutige Einträge</h3>
+          {/* Today's entries */}
+          <div className="rs-card">
+            <p className="rs-section-label">Heutige Einträge</p>
             {calorieEntries.filter(e => e.date === todayStr).length === 0 ? (
-              <p className="text-text-secondary text-sm text-center py-4">Noch keine Einträge</p>
+              <div className="rs-empty" style={{ padding: '32px 0' }}>
+                <Apple size={28} style={{ opacity: 0.2 }} />
+                <span style={{ fontSize: 13 }}>Noch keine Einträge heute</span>
+              </div>
             ) : (
-              <div className="space-y-2">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {calorieEntries
                   .filter(e => e.date === todayStr)
                   .sort((a, b) => {
@@ -733,395 +1155,487 @@ const RecipeSearch: React.FC<RecipeSearchProps> = ({ onAddToShoppingList }) => {
                     return order[a.mealType || 'snack'] - order[b.mealType || 'snack'];
                   })
                   .map(entry => (
-                    <div key={entry.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                    <div key={entry.id} className="rs-entry-row">
                       <div>
-                        <p className="font-medium">{entry.food}</p>
-                        <p className="text-xs text-text-secondary">{mealLabels[entry.mealType as keyof typeof mealLabels] || 'Snack'}</p>
+                        <p style={{ fontWeight: 500, fontSize: 14, margin: 0 }}>{entry.food}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: 0 }}>
+                          {mealLabels[entry.mealType as keyof typeof mealLabels] || 'Snack'}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-ocean-primary font-medium">{entry.calories} kcal</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontWeight: 600, color: 'var(--ocean-600)', fontSize: 14 }}>{entry.calories} kcal</span>
                         <button
+                          className="rs-btn-ghost rs-btn"
+                          style={{ padding: '5px', borderRadius: '8px', color: '#e53e3e' }}
                           onClick={() => {
                             const newEntries = calorieEntries.filter(e => e.id !== entry.id);
                             setCalorieEntries(newEntries);
                             localStorage.setItem('calorieEntries', JSON.stringify(newEntries));
                           }}
-                          className="p-1 text-red-500 hover:bg-red-50 rounded"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </div>
                   ))}
               </div>
             )}
-          </Card>
+          </div>
 
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Target className="text-ocean-primary" />
-              <h3 className="font-medium">Zielgewicht-Rechner</h3>
+          {/* Goal calculator */}
+          <div className="rs-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--ocean-50)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ocean-600)' }}>
+                <Target size={16} />
+              </div>
+              <p style={{ fontWeight: 600, margin: 0 }}>Zielgewicht-Rechner</p>
             </div>
-            <p className="text-sm text-text-secondary mb-2">
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 10px' }}>
               Um in {userProfile.goalMonths} Monaten {userProfile.goalWeight} kg zu erreichen:
             </p>
-            <p className="text-lg font-bold text-ocean-primary">
+            <p style={{ fontSize: 26, fontWeight: 700, color: 'var(--ocean-600)', fontFamily: 'DM Serif Display, serif',
+              margin: '0 0 4px', letterSpacing: '-0.01em' }}>
               {recommendedCalories} kcal/Tag
             </p>
-            <p className="text-xs text-text-secondary mt-1">
-              Wöchentlicher Kaloriendefizit: {Math.round(((userProfile.weight - userProfile.goalWeight) * 7700) / (userProfile.goalMonths * 4.33))} kcal
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+              Wöchentliches Kaloriendefizit: {Math.round(((userProfile.weight - userProfile.goalWeight) * 7700) / (userProfile.goalMonths * 4.33))} kcal
             </p>
-          </Card>
+          </div>
 
+          {/* Profile modal */}
           {showProfileModal && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <Card className="w-full max-w-md p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-display text-lg">Profil bearbeiten</h3>
-                  <Button variant="ghost" onClick={() => setShowProfileModal(false)}><X size={20} /></Button>
-                </div>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm text-text-secondary">Alter</label>
-                      <Input type="number" value={userProfile.age} onChange={(e) => setUserProfile({ ...userProfile, age: parseInt(e.target.value) || 0 })} />
+            <div className="rs-modal-overlay">
+              <div className="rs-modal">
+                <div className="rs-modal-inner">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                    <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, fontFamily: 'DM Serif Display, serif' }}>Profil bearbeiten</h3>
+                    <button className="rs-btn rs-btn-ghost" style={{ padding: 6 }} onClick={() => setShowProfileModal(false)}>
+                      <X size={18} />
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <label className="rs-label">Alter</label>
+                        <input className="rs-input" type="number" value={userProfile.age}
+                          onChange={(e) => setUserProfile({ ...userProfile, age: parseInt(e.target.value) || 0 })} />
+                      </div>
+                      <div>
+                        <label className="rs-label">Geschlecht</label>
+                        <select className="rs-select" style={{ width: '100%' }} value={userProfile.gender}
+                          onChange={(e) => setUserProfile({ ...userProfile, gender: e.target.value as any })}>
+                          <option value="male">Männlich</option>
+                          <option value="female">Weiblich</option>
+                          <option value="other">Andere</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      <div>
+                        <label className="rs-label">Gewicht (kg)</label>
+                        <input className="rs-input" type="number" value={userProfile.weight}
+                          onChange={(e) => setUserProfile({ ...userProfile, weight: parseFloat(e.target.value) || 0 })} />
+                      </div>
+                      <div>
+                        <label className="rs-label">Zielgewicht (kg)</label>
+                        <input className="rs-input" type="number" value={userProfile.goalWeight}
+                          onChange={(e) => setUserProfile({ ...userProfile, goalWeight: parseFloat(e.target.value) || 0 })} />
+                      </div>
                     </div>
                     <div>
-                      <label className="text-sm text-text-secondary">Geschlecht</label>
-                      <select
-                        value={userProfile.gender}
-                        onChange={(e) => setUserProfile({ ...userProfile, gender: e.target.value as any })}
-                        className="w-full px-3 py-2 border rounded-lg"
-                      >
-                        <option value="male">Männlich</option>
-                        <option value="female">Weiblich</option>
-                        <option value="other">Andere</option>
+                      <label className="rs-label">Größe (cm)</label>
+                      <input className="rs-input" type="number" value={userProfile.height}
+                        onChange={(e) => setUserProfile({ ...userProfile, height: parseInt(e.target.value) || 0 })} />
+                    </div>
+                    <div>
+                      <label className="rs-label">Aktivitätslevel</label>
+                      <select className="rs-select" style={{ width: '100%' }} value={userProfile.activityLevel}
+                        onChange={(e) => setUserProfile({ ...userProfile, activityLevel: e.target.value as any })}>
+                        <option value="sedentary">Sedentär (wenig Bewegung)</option>
+                        <option value="light">Leicht aktiv</option>
+                        <option value="moderate">Moderat aktiv</option>
+                        <option value="active">Sehr aktiv</option>
+                        <option value="very_active">Extrem aktiv</option>
                       </select>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm text-text-secondary">Gewicht (kg)</label>
-                      <Input type="number" value={userProfile.weight} onChange={(e) => setUserProfile({ ...userProfile, weight: parseFloat(e.target.value) || 0 })} />
+                      <label className="rs-label">Ziel erreichen in (Monate)</label>
+                      <input className="rs-input" type="number" value={userProfile.goalMonths}
+                        onChange={(e) => setUserProfile({ ...userProfile, goalMonths: parseInt(e.target.value) || 1 })} />
                     </div>
-                    <div>
-                      <label className="text-sm text-text-secondary">Zielgewicht (kg)</label>
-                      <Input type="number" value={userProfile.goalWeight} onChange={(e) => setUserProfile({ ...userProfile, goalWeight: parseFloat(e.target.value) || 0 })} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm text-text-secondary">Größe (cm)</label>
-                    <Input type="number" value={userProfile.height} onChange={(e) => setUserProfile({ ...userProfile, height: parseInt(e.target.value) || 0 })} />
-                  </div>
-                  <div>
-                    <label className="text-sm text-text-secondary">Aktivitätslevel</label>
-                    <select
-                      value={userProfile.activityLevel}
-                      onChange={(e) => setUserProfile({ ...userProfile, activityLevel: e.target.value as any })}
-                      className="w-full px-3 py-2 border rounded-lg"
+                    <button
+                      className="rs-btn rs-btn-primary"
+                      style={{ width: '100%', justifyContent: 'center', padding: '12px' }}
+                      onClick={() => { localStorage.setItem('userProfile', JSON.stringify(userProfile)); setShowProfileModal(false); }}
                     >
-                      <option value="sedentary">Sedentär (wenig Bewegung)</option>
-                      <option value="light">Leicht aktiv</option>
-                      <option value="moderate">Moderat aktiv</option>
-                      <option value="active">Sehr aktiv</option>
-                      <option value="very_active">Extrem aktiv</option>
-                    </select>
+                      <Check size={16} /> Speichern
+                    </button>
                   </div>
-                  <div>
-                    <label className="text-sm text-text-secondary">Ziel erreichen in (Monate)</label>
-                    <Input type="number" value={userProfile.goalMonths} onChange={(e) => setUserProfile({ ...userProfile, goalMonths: parseInt(e.target.value) || 1 })} />
-                  </div>
-                  <Button onClick={() => { localStorage.setItem('userProfile', JSON.stringify(userProfile)); setShowProfileModal(false); }} className="w-full">
-                    Speichern
-                  </Button>
                 </div>
-              </Card>
+              </div>
             </div>
           )}
         </>
       )}
 
-      {/* LUNCHBOX TAB */}
+      {/* ── LUNCHBOX TAB ── */}
       {activeTab === 'lunchbox' && (
         <>
-          <Card className="p-4">
-            <div className="flex gap-2 mb-4">
+          <div className="rs-card">
+            <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
               {(['child', 'teen', 'adult'] as const).map(age => (
                 <button
                   key={age}
+                  className={`rs-btn ${lunchboxAge === age ? 'rs-btn-primary' : 'rs-btn-secondary'}`}
+                  style={{ flex: 1, justifyContent: 'center' }}
                   onClick={() => setLunchboxAge(age)}
-                  className={`flex-1 py-2 px-3 text-sm rounded-lg transition-colors ${
-                    lunchboxAge === age ? 'bg-ocean-primary text-white' : 'bg-gray-100 text-text-secondary'
-                  }`}
                 >
                   {age === 'child' ? 'Kinder' : age === 'teen' ? 'Jugendliche' : 'Erwachsene'}
                 </button>
               ))}
             </div>
-            <div className="flex items-center gap-2">
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13 }}>
               <input
                 type="checkbox"
-                id="healthyOnly"
                 checked={showHealthyOnly}
                 onChange={(e) => setShowHealthyOnly(e.target.checked)}
-                className="w-4 h-4 rounded"
+                style={{ width: 16, height: 16, accentColor: 'var(--ocean-500)', cursor: 'pointer' }}
               />
-              <label htmlFor="healthyOnly" className="text-sm flex items-center gap-1">
-                <Leaf size={14} className="text-green-500" /> Nur gesunde Optionen
-              </label>
-            </div>
-          </Card>
+              <Leaf size={13} style={{ color: '#22c55e' }} />
+              <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Nur gesunde Optionen anzeigen</span>
+            </label>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
             {getLunchboxSuggestions().map((suggestion, idx) => (
-              <Card key={idx} className="p-4">
-                <div className="flex items-start justify-between mb-2">
-                  <h3 className="font-medium">{suggestion.name}</h3>
-                  {suggestion.healthy && <span className="text-green-500"><Leaf size={16} /></span>}
+              <div key={idx} className="rs-lunchbox-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                  <p style={{ fontWeight: 600, fontSize: 15, margin: 0 }}>{suggestion.name}</p>
+                  {suggestion.healthy && (
+                    <span style={{ width: 24, height: 24, borderRadius: 6, background: '#dcfce7',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Leaf size={12} style={{ color: '#16a34a' }} />
+                    </span>
+                  )}
                 </div>
-                <p className="text-xs text-text-secondary mb-2">{suggestion.ingredients.join(', ')}</p>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-ocean-primary font-medium">{suggestion.calories} kcal</span>
-                  <Button size="sm" variant="ghost" onClick={() => onAddToShoppingList?.(suggestion.ingredients)}>
-                    <ShoppingCart size={14} />
-                  </Button>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                  {suggestion.ingredients.join(' · ')}
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span className="rs-badge rs-badge-ocean">
+                    <Flame size={11} />{suggestion.calories} kcal
+                  </span>
+                  <button className="rs-btn rs-btn-secondary rs-btn-sm"
+                    onClick={() => onAddToShoppingList?.(suggestion.ingredients)}>
+                    <ShoppingCart size={12} /> Einkaufsliste
+                  </button>
                 </div>
-              </Card>
+              </div>
             ))}
           </div>
         </>
       )}
 
-      {/* CUSTOM RECIPES TAB */}
+      {/* ── CUSTOM RECIPES TAB ── */}
       {activeTab === 'custom' && (
         <>
-          <Card className="p-4">
-            <h3 className="font-medium mb-3">Neues Rezept erstellen</h3>
-            <div className="space-y-3">
-              <Input
-                placeholder="Rezeptname"
+          <div className="rs-card">
+            <p className="rs-section-label">Neues Rezept erstellen</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <input className="rs-input" placeholder="Rezeptname"
                 value={newCustomRecipe.name}
                 onChange={(e) => setNewCustomRecipe({ ...newCustomRecipe, name: e.target.value })}
               />
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Zutat hinzufügen..."
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input className="rs-input" placeholder="Zutat hinzufügen…"
                   value={ingredientInput}
                   onChange={(e) => setIngredientInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addIngredientToCustom()}
+                  style={{ flex: 1 }}
                 />
-                <Button onClick={addIngredientToCustom}><Plus size={18} /></Button>
+                <button className="rs-btn rs-btn-primary" style={{ padding: '10px 14px' }} onClick={addIngredientToCustom}>
+                  <Plus size={16} />
+                </button>
               </div>
               {newCustomRecipe.ingredients && newCustomRecipe.ingredients.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {newCustomRecipe.ingredients.map((ing, idx) => (
-                    <span key={idx} className="bg-ocean-primary/10 text-ocean-primary px-2 py-1 rounded-full text-xs flex items-center gap-1">
+                    <span key={idx} className="rs-chip">
                       {ing}
-                      <button onClick={() => removeIngredientFromCustom(idx)}><X size={12} /></button>
+                      <button onClick={() => removeIngredientFromCustom(idx)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)',
+                          padding: 0, display: 'flex', alignItems: 'center' }}>
+                        <X size={11} />
+                      </button>
                     </span>
                   ))}
                 </div>
               )}
-              <Input
-                placeholder="Zubereitung (optional)"
+              <input className="rs-input" placeholder="Zubereitung (optional)"
                 value={newCustomRecipe.instructions}
                 onChange={(e) => setNewCustomRecipe({ ...newCustomRecipe, instructions: e.target.value })}
               />
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Kalorien"
-                  type="number"
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <input className="rs-input" placeholder="Kalorien" type="number"
                   value={newCustomRecipe.calories || ''}
                   onChange={(e) => setNewCustomRecipe({ ...newCustomRecipe, calories: parseInt(e.target.value) || 0 })}
                 />
-                <div className="flex gap-1">
+                <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
                   {[1, 2, 3, 4, 5].map(star => (
-                    <button
-                      key={star}
+                    <button key={star} className="rs-star"
                       onClick={() => setNewCustomRecipe({ ...newCustomRecipe, rating: star })}
-                      className={`p-1 ${star <= (newCustomRecipe.rating || 0) ? 'text-yellow-500' : 'text-gray-300'}`}
-                    >
+                      style={{ background: 'none', border: 'none', padding: 2,
+                        color: star <= (newCustomRecipe.rating || 0) ? '#f59e0b' : 'var(--border-md)' }}>
                       <Star size={20} fill={star <= (newCustomRecipe.rating || 0) ? 'currentColor' : 'none'} />
                     </button>
                   ))}
                 </div>
               </div>
-              <Button onClick={saveCustomRecipe} disabled={!newCustomRecipe.name || !newCustomRecipe.ingredients?.length} className="w-full">
-                Rezept speichern
-              </Button>
+              <button
+                className="rs-btn rs-btn-primary"
+                style={{ width: '100%', justifyContent: 'center', padding: '12px', opacity: (!newCustomRecipe.name || !newCustomRecipe.ingredients?.length) ? 0.5 : 1 }}
+                onClick={saveCustomRecipe}
+                disabled={!newCustomRecipe.name || !newCustomRecipe.ingredients?.length}
+              >
+                <Check size={16} /> Rezept speichern
+              </button>
             </div>
-          </Card>
+          </div>
 
-          <Card className="p-4">
-            <h3 className="font-medium mb-3">Meine Rezepte</h3>
+          <div className="rs-card">
+            <p className="rs-section-label">Meine Rezepte</p>
             {customRecipes.length === 0 ? (
-              <p className="text-text-secondary text-sm text-center py-4">Noch keine eigenen Rezepte</p>
+              <div className="rs-empty" style={{ padding: '28px 0' }}>
+                <ChefHat size={28} style={{ opacity: 0.2 }} />
+                <span style={{ fontSize: 13 }}>Noch keine eigenen Rezepte</span>
+              </div>
             ) : (
-              <div className="space-y-3">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {customRecipes.map(recipe => (
-                  <div key={recipe.id} className="p-3 bg-gray-50 rounded-lg">
-                    <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-medium">{recipe.name}</h4>
-                      <div className="flex items-center gap-1 text-yellow-500">
+                  <div key={recipe.id} style={{
+                    padding: '14px', background: 'var(--surface-2)',
+                    border: '1px solid var(--border)', borderRadius: 'var(--radius-md)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+                      <p style={{ fontWeight: 600, margin: 0, fontSize: 14 }}>{recipe.name}</p>
+                      <div style={{ display: 'flex', gap: 1 }}>
                         {[1, 2, 3, 4, 5].map(star => (
-                          <Star key={star} size={12} fill={star <= recipe.rating ? 'currentColor' : 'none'} />
+                          <Star key={star} size={11}
+                            style={{ color: star <= recipe.rating ? '#f59e0b' : 'var(--border-md)' }}
+                            fill={star <= recipe.rating ? 'currentColor' : 'none'} />
                         ))}
                       </div>
                     </div>
-                    <p className="text-xs text-text-secondary mb-2">{recipe.ingredients.join(', ')}</p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-ocean-primary">{recipe.calories} kcal</span>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="ghost" onClick={() => onAddToShoppingList?.(recipe.ingredients)}>
-                          <ShoppingCart size={14} />
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => {
-                          const newRecipes = customRecipes.filter(r => r.id !== recipe.id);
-                          setCustomRecipes(newRecipes);
-                          localStorage.setItem('customRecipes', JSON.stringify(newRecipes));
-                        }}>
-                          <Trash2 size={14} />
-                        </Button>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 10px', lineHeight: 1.5 }}>
+                      {recipe.ingredients.join(' · ')}
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span className="rs-badge rs-badge-ocean"><Flame size={11} />{recipe.calories} kcal</span>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button className="rs-btn rs-btn-secondary rs-btn-sm"
+                          onClick={() => onAddToShoppingList?.(recipe.ingredients)}>
+                          <ShoppingCart size={12} />
+                        </button>
+                        <button
+                          className="rs-btn rs-btn-sm"
+                          style={{ background: '#fef0f0', color: '#b91c1c', border: '1px solid #fecaca' }}
+                          onClick={() => {
+                            const newRecipes = customRecipes.filter(r => r.id !== recipe.id);
+                            setCustomRecipes(newRecipes);
+                            localStorage.setItem('customRecipes', JSON.stringify(newRecipes));
+                          }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </Card>
+          </div>
         </>
       )}
 
-      {/* WHAT CAN I COOK TAB */}
+      {/* ── WHAT CAN I COOK TAB ── */}
       {activeTab === 'whatcanicook' && (
         <>
-          <Card className="p-4">
-            <h3 className="font-medium mb-3">Was kann ich kochen?</h3>
-            <p className="text-sm text-text-secondary mb-3">Gib bis zu 5 Zutaten ein, die du zuhause hast.</p>
-
-            <div className="flex gap-2 mb-3">
-              <Input
-                placeholder="Zutat eingeben..."
+          <div className="rs-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'var(--ocean-50)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ocean-600)' }}>
+                <Lightbulb size={15} />
+              </div>
+              <p style={{ fontWeight: 600, margin: 0 }}>Was kann ich kochen?</p>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 14px' }}>
+              Gib bis zu 5 Zutaten ein, die du zuhause hast.
+            </p>
+            <div style={{ display: 'flex', gap: 8, marginBottom: availableIngredients.length > 0 ? 10 : 14 }}>
+              <input className="rs-input" placeholder="Zutat eingeben…"
                 value={ingredientSearch}
                 onChange={(e) => setIngredientSearch(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && availableIngredients.length < 5) {
+                  if (e.key === 'Enter' && availableIngredients.length < 5 && ingredientSearch.trim()) {
                     setAvailableIngredients([...availableIngredients, ingredientSearch.trim()]);
                     setIngredientSearch('');
                   }
                 }}
+                style={{ flex: 1 }}
               />
-              <Button
+              <button
+                className="rs-btn rs-btn-primary"
+                style={{ padding: '10px 14px', opacity: availableIngredients.length >= 5 ? 0.5 : 1 }}
                 onClick={() => {
-                  if (availableIngredients.length < 5) {
+                  if (availableIngredients.length < 5 && ingredientSearch.trim()) {
                     setAvailableIngredients([...availableIngredients, ingredientSearch.trim()]);
                     setIngredientSearch('');
                   }
                 }}
                 disabled={availableIngredients.length >= 5}
               >
-                <Plus size={18} />
-              </Button>
+                <Plus size={16} />
+              </button>
             </div>
-
             {availableIngredients.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-3">
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
                 {availableIngredients.map((ing, idx) => (
-                  <span key={idx} className="bg-ocean-primary text-white px-3 py-1 rounded-full text-sm flex items-center gap-1">
+                  <span key={idx} className="rs-chip">
                     {ing}
-                    <button onClick={() => setAvailableIngredients(availableIngredients.filter((_, i) => i !== idx))}>
-                      <X size={12} />
+                    <button onClick={() => setAvailableIngredients(availableIngredients.filter((_, i) => i !== idx))}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.7)',
+                        padding: 0, display: 'flex', alignItems: 'center' }}>
+                      <X size={11} />
                     </button>
                   </span>
                 ))}
               </div>
             )}
-
-            <Button onClick={searchWhatCanICook} disabled={availableIngredients.length === 0} className="w-full">
-              <Search size={16} /> Rezepte finden
-            </Button>
-          </Card>
+            <button
+              className="rs-btn rs-btn-primary"
+              style={{ width: '100%', justifyContent: 'center', padding: '12px',
+                opacity: availableIngredients.length === 0 ? 0.5 : 1 }}
+              onClick={searchWhatCanICook}
+              disabled={availableIngredients.length === 0}
+            >
+              <Search size={15} /> Passende Rezepte finden
+            </button>
+          </div>
 
           {loading ? (
-            <div className="grid grid-cols-2 gap-4">
-              {[1, 2, 3, 4].map(i => <Card key={i} className="p-0"><div className="h-32 skeleton" /></Card>)}
+            <div className="rs-recipe-grid">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} style={{ borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                  <div className="rs-skeleton" style={{ height: 130 }} />
+                  <div style={{ padding: 12 }}>
+                    <div className="rs-skeleton" style={{ height: 14, width: '75%', marginBottom: 6 }} />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : cookableRecipes.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="rs-recipe-grid">
               {cookableRecipes.map(recipe => (
-                <Card
-                  key={recipe.idMeal}
-                  className="p-0 overflow-hidden cursor-pointer hover:shadow-card-hover"
-                  onClick={() => loadRecipeDetails(recipe.idMeal)}
-                >
-                  <img src={recipe.strMealThumb} alt={recipe.strMeal} className="w-full h-32 object-cover" />
-                  <div className="p-3">
-                    <h3 className="font-medium text-sm truncate">{recipe.strMeal}</h3>
-                    <p className="text-xs text-text-secondary">~{estimateCalories(recipe)} kcal</p>
+                <div key={recipe.idMeal} className="rs-recipe-card" onClick={() => loadRecipeDetails(recipe.idMeal)}>
+                  <div className="rs-recipe-img-wrap">
+                    <img src={recipe.strMealThumb} alt={recipe.strMeal} className="rs-recipe-img" />
+                    <div className="rs-recipe-kcal"><Flame size={10} />~{estimateCalories(recipe)} kcal</div>
                   </div>
-                </Card>
+                  <div className="rs-recipe-body">
+                    <p className="rs-recipe-name">{recipe.strMeal}</p>
+                    <p className="rs-recipe-cat">Passt zu deinen Zutaten</p>
+                  </div>
+                </div>
               ))}
             </div>
           ) : availableIngredients.length > 0 ? (
-            <Card className="p-4 text-center">
-              <p className="text-text-secondary">Keine passenden Rezepte gefunden. Versuche andere Zutaten.</p>
-            </Card>
+            <div className="rs-empty">
+              <Search size={32} style={{ opacity: 0.2 }} />
+              <p style={{ fontSize: 13 }}>Keine passenden Rezepte. Versuche andere Zutaten.</p>
+            </div>
           ) : null}
         </>
       )}
 
-      {/* RECIPE DETAIL MODAL */}
+      {/* ── RECIPE DETAIL MODAL ── */}
       {selectedRecipe && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="relative">
-              <img src={selectedRecipe.strMealThumb} alt={selectedRecipe.strMeal} className="w-full h-48 object-cover rounded-lg" />
-              <button onClick={() => setSelectedRecipe(null)} className="absolute top-2 right-2 p-2 rounded-full bg-white/90">
-                <X size={20} />
+        <div className="rs-modal-overlay" onClick={() => setSelectedRecipe(null)}>
+          <div className="rs-modal" onClick={(e) => e.stopPropagation()}>
+            <div style={{ position: 'relative' }}>
+              <img
+                src={selectedRecipe.strMealThumb}
+                alt={selectedRecipe.strMeal}
+                style={{ width: '100%', height: 200, objectFit: 'cover', display: 'block',
+                  borderRadius: '16px 16px 0 0' }}
+              />
+              <button
+                onClick={() => setSelectedRecipe(null)}
+                style={{
+                  position: 'absolute', top: 12, right: 12,
+                  width: 32, height: 32, borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.92)', border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  backdropFilter: 'blur(4px)', color: 'var(--text-primary)'
+                }}
+              >
+                <X size={16} />
               </button>
             </div>
-            <div className="mt-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="font-display text-xl">{selectedRecipe.strMeal}</h2>
-                  <div className="flex gap-2 mt-1 flex-wrap">
+            <div className="rs-modal-inner">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                <div style={{ flex: 1, paddingRight: 8 }}>
+                  <h2 style={{ fontFamily: 'DM Serif Display, serif', fontSize: 22, margin: '0 0 8px', lineHeight: 1.2 }}>
+                    {selectedRecipe.strMeal}
+                  </h2>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                     {selectedRecipe.strCategory && (
-                      <span className="text-xs bg-ocean-primary/10 text-ocean-primary px-2 py-0.5 rounded-full">{selectedRecipe.strCategory}</span>
+                      <span className="rs-badge rs-badge-ocean">{selectedRecipe.strCategory}</span>
                     )}
                     {selectedRecipe.strArea && (
-                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">{selectedRecipe.strArea}</span>
+                      <span className="rs-badge rs-badge-amber">{selectedRecipe.strArea}</span>
                     )}
-                    <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Flame size={12} />~{estimateCalories(selectedRecipe)} kcal
+                    <span className="rs-badge rs-badge-red">
+                      <Flame size={10} />~{estimateCalories(selectedRecipe)} kcal
                     </span>
                   </div>
                 </div>
-                <button onClick={() => toggleFavorite(selectedRecipe.idMeal)} className="p-2">
-                  <Heart size={24} className={favorites.includes(selectedRecipe.idMeal) ? 'fill-red-500 text-red-500' : 'text-gray-400'} />
+                <button onClick={() => toggleFavorite(selectedRecipe.idMeal)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, flexShrink: 0 }}>
+                  <Heart size={22}
+                    style={{ color: favorites.includes(selectedRecipe.idMeal) ? '#e53e3e' : 'var(--text-muted)',
+                      fill: favorites.includes(selectedRecipe.idMeal) ? '#e53e3e' : 'none',
+                      transition: 'all 0.15s' }}
+                  />
                 </button>
               </div>
-              <div className="mt-6">
-                <h3 className="font-medium mb-2">Zutaten</h3>
-                <ul className="space-y-1">
-                  {getIngredients(selectedRecipe).map((ing, idx) => (
-                    <li key={idx} className="text-sm flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-ocean-primary" />{ing}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="flex gap-2 mt-4">
+
+              <div className="rs-divider" />
+
+              <p className="rs-section-label">Zutaten</p>
+              <ul style={{ margin: '0 0 16px', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {getIngredients(selectedRecipe).map((ing, idx) => (
+                  <li key={idx} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ocean-400)', flexShrink: 0 }} />
+                    {ing}
+                  </li>
+                ))}
+              </ul>
+
+              <div style={{ display: 'flex', gap: 8 }}>
                 {onAddToShoppingList && (
-                  <Button onClick={() => { onAddToShoppingList(getIngredients(selectedRecipe)); }} className="flex-1">
-                    <ShoppingCart size={16} /> Einkaufsliste
-                  </Button>
+                  <button className="rs-btn rs-btn-primary" style={{ flex: 1, justifyContent: 'center', padding: '11px' }}
+                    onClick={() => onAddToShoppingList(getIngredients(selectedRecipe))}>
+                    <ShoppingCart size={14} /> Einkaufsliste
+                  </button>
                 )}
-                <Button variant="secondary" onClick={() => { setActiveTab('weekplan'); }} className="flex-1">
-                  <Calendar size={16} /> Wochenplan
-                </Button>
+                <button className="rs-btn rs-btn-secondary" style={{ flex: 1, justifyContent: 'center', padding: '11px' }}
+                  onClick={() => { setActiveTab('weekplan'); setSelectedRecipe(null); }}>
+                  <Calendar size={14} /> Wochenplan
+                </button>
               </div>
             </div>
-          </Card>
+          </div>
         </div>
       )}
     </div>
