@@ -72,7 +72,23 @@ const STORAGE_KEY_WEIGHT = 'familyhub_weight_entries';
 const STORAGE_KEY_START_DATE = 'familyhub_weight_start_date';
 const STORAGE_KEY_ACTIVITIES = 'familyhub_activities';
 
-// ─── Styles (FamilyHub Dashboard – FIXED: border longhand) ─────────────
+// ─── SSR-sicherer localStorage-Helfer ──────────────────────────────────
+const safeLocalStorage = {
+  getItem: (key: string): string | null => {
+    if (typeof window === 'undefined') return null;
+    try { return localStorage.getItem(key); } catch { return null; }
+  },
+  setItem: (key: string, value: string): void => {
+    if (typeof window === 'undefined') return;
+    try { localStorage.setItem(key, value); } catch {}
+  },
+  removeItem: (key: string): void => {
+    if (typeof window === 'undefined') return;
+    try { localStorage.removeItem(key); } catch {}
+  },
+};
+
+// ─── Styles ─────────────────────────────────────────────────────────────
 const S = {
   page: {
     minHeight: '100vh',
@@ -197,7 +213,6 @@ const S = {
     width: '100%',
     padding: 12,
     borderRadius: 16,
-    // ✅ FIX: Shorthand 'border' durch Longhand ersetzt (vermeidet React-Style-Conflict)
     borderWidth: 1,
     borderStyle: 'solid',
     borderColor: '#e2e8f0',
@@ -207,7 +222,6 @@ const S = {
     transition: 'all 0.2s',
   } as React.CSSProperties,
   activityActive: {
-    // ✅ Überschreibt nur borderColor – jetzt konfliktfrei
     borderColor: '#2563eb',
     background: '#eff6ff',
   },
@@ -263,6 +277,7 @@ const S = {
 // Hilfsfunktionen
 const formatDate = (date: Date): string => date.toISOString().slice(0, 10);
 const getToday = () => formatDate(new Date());
+const defaultStartDate = () => formatDate(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000));
 
 export default function CaloriePage() {
   const router = useRouter();
@@ -279,12 +294,9 @@ export default function CaloriePage() {
   const [showInfo, setShowInfo] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
-  // Gewichtsverlauf State
+  // Gewichtsverlauf State – SSR-sicher: kein localStorage im Initializer
   const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
-  const [startDate, setStartDate] = useState<string>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_START_DATE);
-    return saved || formatDate(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000));
-  });
+  const [startDate, setStartDate] = useState<string>(defaultStartDate);
   const [newWeightDate, setNewWeightDate] = useState<string>(getToday());
   const [newWeightValue, setNewWeightValue] = useState<string>('');
   const [isListening, setIsListening] = useState(false);
@@ -303,47 +315,50 @@ export default function CaloriePage() {
   const recognitionRef = useRef<any>(null);
 
   // ─── Effekte ──────────────────────────────────────────────────────────
+
+  // Einmaliges Laden aller Daten aus localStorage (nur im Browser)
   useEffect(() => {
-    // Lade Kalorienprofil
-    const savedProfile = localStorage.getItem(STORAGE_KEY_PROFILE);
+    // Kalorienprofil
+    const savedProfile = safeLocalStorage.getItem(STORAGE_KEY_PROFILE);
     if (savedProfile) {
       try {
         const parsed = JSON.parse(savedProfile);
         setProfile(parsed);
         calculateCalories(parsed);
         setIsSaved(true);
-      } catch (e) {}
+      } catch {}
     } else {
       calculateCalories(profile);
     }
 
-    // Lade Gewichtsdaten
-    const savedWeights = localStorage.getItem(STORAGE_KEY_WEIGHT);
+    // Startdatum
+    const savedStartDate = safeLocalStorage.getItem(STORAGE_KEY_START_DATE);
+    if (savedStartDate) setStartDate(savedStartDate);
+
+    // Gewichtsdaten
+    const savedWeights = safeLocalStorage.getItem(STORAGE_KEY_WEIGHT);
     if (savedWeights) {
-      try {
-        setWeightEntries(JSON.parse(savedWeights));
-      } catch (e) {}
+      try { setWeightEntries(JSON.parse(savedWeights)); } catch {}
     }
 
-    // Lade Aktivitäten
-    const savedActivities = localStorage.getItem(STORAGE_KEY_ACTIVITIES);
+    // Aktivitäten
+    const savedActivities = safeLocalStorage.getItem(STORAGE_KEY_ACTIVITIES);
     if (savedActivities) {
-      try {
-        setActivities(JSON.parse(savedActivities));
-      } catch (e) {}
+      try { setActivities(JSON.parse(savedActivities)); } catch {}
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_WEIGHT, JSON.stringify(weightEntries));
+    safeLocalStorage.setItem(STORAGE_KEY_WEIGHT, JSON.stringify(weightEntries));
   }, [weightEntries]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_START_DATE, startDate);
+    safeLocalStorage.setItem(STORAGE_KEY_START_DATE, startDate);
   }, [startDate]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_ACTIVITIES, JSON.stringify(activities));
+    safeLocalStorage.setItem(STORAGE_KEY_ACTIVITIES, JSON.stringify(activities));
   }, [activities]);
 
   // Berechnung der verbrannten Kalorien bei Änderung von Sport/Dauer
@@ -382,7 +397,7 @@ export default function CaloriePage() {
     setIsSaved(false);
   };
   const handleSaveProfile = () => {
-    localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(profile));
+    safeLocalStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(profile));
     setIsSaved(true);
   };
   const handleResetProfile = () => {
@@ -395,7 +410,7 @@ export default function CaloriePage() {
     };
     setProfile(defaultProfile);
     calculateCalories(defaultProfile);
-    localStorage.removeItem(STORAGE_KEY_PROFILE);
+    safeLocalStorage.removeItem(STORAGE_KEY_PROFILE);
     setIsSaved(false);
   };
 
@@ -431,7 +446,7 @@ export default function CaloriePage() {
     setNewWeightDate(getToday());
   };
 
-  // Spracheingabe (wie gehabt)
+  // Spracheingabe
   const startVoiceInput = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       alert('Ihr Browser unterstützt keine Spracheingabe.');
@@ -529,7 +544,6 @@ export default function CaloriePage() {
       met,
     };
     setActivities(prev => [newActivity, ...prev]);
-    // Optional: Eingabe zurücksetzen
     setDurationMinutes(30);
   };
 
