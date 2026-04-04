@@ -42,7 +42,7 @@ interface ActivityEntry {
   met: number;
 }
 
-// Sportarten mit MET-Werten (Quelle: Compendium of Physical Activities)
+// Sportarten mit MET-Werten
 const SPORTS: { name: string; met: number }[] = [
   { name: 'Gehen (3 km/h)', met: 2.0 },
   { name: 'Walking (5 km/h)', met: 3.5 },
@@ -294,7 +294,7 @@ export default function CaloriePage() {
   const [showInfo, setShowInfo] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
-  // Gewichtsverlauf State – SSR-sicher: kein localStorage im Initializer
+  // Gewichtsverlauf State
   const [weightEntries, setWeightEntries] = useState<WeightEntry[]>([]);
   const [startDate, setStartDate] = useState<string>(defaultStartDate);
   const [newWeightDate, setNewWeightDate] = useState<string>(getToday());
@@ -311,14 +311,10 @@ export default function CaloriePage() {
   const [calculatedCalories, setCalculatedCalories] = useState<number>(0);
   const [useCustomMet, setUseCustomMet] = useState(false);
 
-  // Sprachrecognition
   const recognitionRef = useRef<any>(null);
 
   // ─── Effekte ──────────────────────────────────────────────────────────
-
-  // Einmaliges Laden aller Daten aus localStorage (nur im Browser)
   useEffect(() => {
-    // Kalorienprofil
     const savedProfile = safeLocalStorage.getItem(STORAGE_KEY_PROFILE);
     if (savedProfile) {
       try {
@@ -330,18 +326,12 @@ export default function CaloriePage() {
     } else {
       calculateCalories(profile);
     }
-
-    // Startdatum
     const savedStartDate = safeLocalStorage.getItem(STORAGE_KEY_START_DATE);
     if (savedStartDate) setStartDate(savedStartDate);
-
-    // Gewichtsdaten
     const savedWeights = safeLocalStorage.getItem(STORAGE_KEY_WEIGHT);
     if (savedWeights) {
       try { setWeightEntries(JSON.parse(savedWeights)); } catch {}
     }
-
-    // Aktivitäten
     const savedActivities = safeLocalStorage.getItem(STORAGE_KEY_ACTIVITIES);
     if (savedActivities) {
       try { setActivities(JSON.parse(savedActivities)); } catch {}
@@ -361,7 +351,6 @@ export default function CaloriePage() {
     safeLocalStorage.setItem(STORAGE_KEY_ACTIVITIES, JSON.stringify(activities));
   }, [activities]);
 
-  // Berechnung der verbrannten Kalorien bei Änderung von Sport/Dauer
   useEffect(() => {
     const met = useCustomMet ? parseFloat(customMet) || 0 : selectedSport.met;
     const weightKg = profile.weight;
@@ -446,7 +435,6 @@ export default function CaloriePage() {
     setNewWeightDate(getToday());
   };
 
-  // Spracheingabe
   const startVoiceInput = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       alert('Ihr Browser unterstützt keine Spracheingabe.');
@@ -513,7 +501,6 @@ export default function CaloriePage() {
     }
   };
 
-  // Waagen Mock
   const connectScale = () => {
     setScaleStatus('connecting');
     setTimeout(() => {
@@ -551,11 +538,8 @@ export default function CaloriePage() {
     setActivities(prev => prev.filter(a => a.id !== id));
   };
 
-  // Heutige Aktivitäten und Summe
   const todayActivities = activities.filter(a => a.date === getToday());
   const todayCaloriesBurned = todayActivities.reduce((sum, a) => sum + a.caloriesBurned, 0);
-
-  // Daten für Chart filtern
   const chartData = weightEntries
     .filter(entry => entry.date >= startDate)
     .map(entry => ({ date: entry.date, weight: entry.weight }))
@@ -724,8 +708,17 @@ export default function CaloriePage() {
                         <Calendar size={14} color="#64748b" />
                         <span style={{ fontWeight: 500 }}>{entry.date}</span>
                         <span style={{ fontWeight: 600 }}>{entry.weight} kg</span>
-                        {entry.source === 'voice' && <Mic size={12} color="#16a34a" title="Sprache" />}
-                        {entry.source === 'scale' && <Scale size={12} color="#2563eb" title="Waage" />}
+                        {/* ✅ FIX: title durch aria-label + Wrapper mit title-Attribut ersetzt */}
+                        {entry.source === 'voice' && (
+                          <span title="Sprache" aria-label="Spracheingabe">
+                            <Mic size={12} color="#16a34a" />
+                          </span>
+                        )}
+                        {entry.source === 'scale' && (
+                          <span title="Waage" aria-label="Smart-Waage">
+                            <Scale size={12} color="#2563eb" />
+                          </span>
+                        )}
                       </div>
                       <button onClick={() => deleteWeightEntry(entry.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444' }}><Trash2 size={16} /></button>
                     </div>
