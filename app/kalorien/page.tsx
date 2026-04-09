@@ -6,14 +6,16 @@ import {
   Flame, Save, RotateCcw, ArrowLeft, Plus, Mic, Scale, Bluetooth, Trash2,
   TrendingUp, Dumbbell, Timer, Coffee, Camera, Upload, Check,
   UtensilsCrossed, ChevronDown, ChevronUp, X, Loader2, Settings,
-  Sparkles, Heart, Calculator, Activity, Calendar as CalendarIcon
+  Sparkles, Heart, Activity, CalendarIcon, Edit2, Target, Info,
+  Footprints, Bike, Droplets, Zap, Sun, Moon, Apple, Salad, Egg, Fish, Beef, Wheat, Milk, Wine, BatteryCharging,
+  Music
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar
+  BarChart, Bar, ReferenceLine, Area, AreaChart
 } from 'recharts';
 
-// ─── Types ──────────────────────────────────────────────────────────────
+// ==================== TYPEN ====================
 interface UserProfile {
   age: number; gender: 'male' | 'female'; weight: number; height: number;
   activityLevel: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';
@@ -23,153 +25,429 @@ interface WeightEntry { id: string; date: string; weight: number; source: 'manua
 interface ActivityEntry { id: string; date: string; sport: string; durationMinutes: number; caloriesBurned: number; met: number; }
 interface FoodEntry { id: string; date: string; time: string; name: string; calories: number; source: 'manual' | 'voice' | 'photo'; photoPreview?: string; }
 
+// ==================== KONSTANTEN ====================
 const SPORTS = [
-  { name: 'Gehen (3 km/h)', met: 2.0 }, { name: 'Walking (5 km/h)', met: 3.5 },
-  { name: 'Joggen (8 km/h)', met: 8.0 }, { name: 'Laufen (10 km/h)', met: 10.0 },
-  { name: 'Radfahren (16 km/h)', met: 6.0 }, { name: 'Radfahren (20 km/h)', met: 8.0 },
-  { name: 'Schwimmen (moderat)', met: 7.0 }, { name: 'Yoga', met: 2.5 },
-  { name: 'Krafttraining (leicht)', met: 3.5 }, { name: 'Krafttraining (intensiv)', met: 6.0 },
-  { name: 'HIIT', met: 8.0 }, { name: 'Fußball', met: 7.0 }, { name: 'Tanzen', met: 4.5 },
+  { name: 'Gehen (3 km/h)', met: 2.0, icon: Footprints },
+  { name: 'Walking (5 km/h)', met: 3.5, icon: Footprints },
+  { name: 'Joggen (8 km/h)', met: 8.0, icon: Activity },
+  { name: 'Laufen (10 km/h)', met: 10.0, icon: Zap },
+  { name: 'Radfahren (16 km/h)', met: 6.0, icon: Bike },
+  { name: 'Radfahren (20 km/h)', met: 8.0, icon: Bike },
+  { name: 'Schwimmen (moderat)', met: 7.0, icon: Droplets },
+  { name: 'Yoga', met: 2.5, icon: Sun },
+  { name: 'Krafttraining (leicht)', met: 3.5, icon: Dumbbell },
+  { name: 'Krafttraining (intensiv)', met: 6.0, icon: Dumbbell },
+  { name: 'HIIT', met: 8.0, icon: BatteryCharging },
+  { name: 'Fußball', met: 7.0, icon: Activity },
+  { name: 'Tanzen', met: 4.5, icon: Music },
 ];
-const ACT_MULT: Record<UserProfile['activityLevel'], { value: number; label: string; desc: string }> = {
+const ACTIVITY_MULTIPLIERS: Record<UserProfile['activityLevel'], { value: number; label: string; desc: string }> = {
   sedentary: { value: 1.2, label: 'Sedentär', desc: 'Büroarbeit, wenig Bewegung' },
   light: { value: 1.375, label: 'Leicht aktiv', desc: 'Sport 1–3 Tage/Woche' },
   moderate: { value: 1.55, label: 'Mäßig aktiv', desc: 'Sport 3–5 Tage/Woche' },
   active: { value: 1.725, label: 'Aktiv', desc: 'Sport 6–7 Tage/Woche' },
   very_active: { value: 1.9, label: 'Sehr aktiv', desc: 'Körperl. Arbeit + Sport' },
 };
-const SK = { p: 'fhub_profile', w: 'fhub_weight', a: 'fhub_acts', f: 'fhub_food', g: 'fhub_goal', ws: 'fhub_weight_start' };
-const ls = {
+const STORAGE_KEYS = {
+  profile: 'familyhub_calorie_profile',
+  weight: 'familyhub_weight_entries',
+  activities: 'familyhub_activities',
+  food: 'familyhub_food_entries',
+  goal: 'familyhub_calorie_goal',
+  weightStart: 'familyhub_weight_start_date'
+};
+const safeLS = {
   get: (k: string) => { try { return typeof window !== 'undefined' ? localStorage.getItem(k) : null; } catch { return null; } },
   set: (k: string, v: string) => { try { if (typeof window !== 'undefined') localStorage.setItem(k, v); } catch {} },
   del: (k: string) => { try { if (typeof window !== 'undefined') localStorage.removeItem(k); } catch {} },
 };
-const fd = (d: Date) => d.toISOString().slice(0, 10);
-const td = () => fd(new Date());
-const nt = () => new Date().toTimeString().slice(0, 5);
+const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
+const todayStr = () => fmtDate(new Date());
+const nowTime = () => new Date().toTimeString().slice(0, 5);
 
-// ─── Hilfsfunktionen ────────────────────────────────────────────────────
-function idealWeight(height: number): { lo: number; hi: number } {
+// ==================== HILFSFUNKTIONEN ====================
+function idealWeight(height: number) {
   const m = height / 100;
   return { lo: Math.round(18.5 * m * m), hi: Math.round(24.9 * m * m) };
 }
-function getBMI(weight: number, height: number): number {
-  const m = height / 100;
-  return weight / (m * m);
-}
+function getBMI(weight: number, height: number) { const m = height / 100; return weight / (m * m); }
 function getBMICategory(bmi: number): { label: string; color: string } {
   if (bmi < 18.5) return { label: 'Untergewicht', color: '#3b82f6' };
   if (bmi < 25) return { label: 'Normalgewicht', color: '#16a34a' };
   if (bmi < 30) return { label: 'Übergewicht', color: '#f59e0b' };
   return { label: 'Adipositas', color: '#ef4444' };
 }
-function getWeightDifference(entries: WeightEntry[]): { diff: number; weeklyRate: number; startWeight: number; currentWeight: number } {
+function getWeightDiff(entries: WeightEntry[]) {
   if (entries.length === 0) return { diff: 0, weeklyRate: 0, startWeight: 0, currentWeight: 0 };
+  const s = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const diff = s[s.length - 1].weight - s[0].weight;
+  const days = (new Date(s[s.length - 1].date).getTime() - new Date(s[0].date).getTime()) / 86400000;
+  return { diff, weeklyRate: days > 0 ? diff / (days / 7) : 0, startWeight: s[0].weight, currentWeight: s[s.length - 1].weight };
+}
+
+// --- NEUE FUNKTIONEN FÜR TREND & REGRESSION ---
+function linearRegression(entries: WeightEntry[]): { slope: number; intercept: number; r2: number } | null {
+  if (entries.length < 2) return null;
   const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
-  const startWeight = sorted[0].weight;
-  const currentWeight = sorted[sorted.length - 1].weight;
-  const diff = currentWeight - startWeight;
-  const days = (new Date(sorted[sorted.length - 1].date).getTime() - new Date(sorted[0].date).getTime()) / (1000 * 3600 * 24);
-  const weeks = days / 7;
-  const weeklyRate = weeks > 0 ? diff / weeks : 0;
-  return { diff, weeklyRate, startWeight, currentWeight };
-}
-
-// ─── Lokale Lebensmittel-Datenbank (kcal pro 100g) ───────────────────────
-const foodDB: Record<string, number> = {
-  apfel: 52, banane: 89, birne: 57, orange: 47, erdbeere: 32, himbeere: 52,
-  brot: 265, vollkornbrot: 247, toast: 300, brötchen: 280,
-  haferflocken: 371, müsli: 380, cornflakes: 378,
-  reis: 130, nudeln: 158, kartoffel: 77, süßkartoffel: 86,
-  hähnchen: 165, rind: 250, schwein: 242, fisch: 150, lachs: 208,
-  ei: 155, käse: 350, quark: 68, joghurt: 61, milch: 64,
-  butter: 717, öl: 884, nüsse: 600, mandeln: 579,
-  schokolade: 546, kuchen: 400, pizza: 266, burger: 295,
-  pommes: 312, salat: 15, gurke: 12, tomate: 18, paprika: 26,
-};
-function parseFoodAndWeight(input: string): { food: string | null; weight: number | null; caloriesPer100g: number | null } {
-  const lower = input.toLowerCase().trim();
-  const weightMatch = lower.match(/(\d+(?:[.,]\d+)?)\s*(?:g|gramm|gram)?/);
-  let weight: number | null = null;
-  if (weightMatch) weight = parseFloat(weightMatch[1].replace(',', '.'));
-  let foodName = lower.replace(/(\d+(?:[.,]\d+)?)\s*(?:g|gramm|gram)?/, '').trim();
-  for (const [key, cal] of Object.entries(foodDB)) {
-    if (foodName.includes(key)) {
-      return { food: key, weight, caloriesPer100g: cal };
-    }
+  const firstDate = new Date(sorted[0].date).getTime();
+  const points = sorted.map(e => ({
+    x: (new Date(e.date).getTime() - firstDate) / (1000 * 3600 * 24), // Tage seit erstem Eintrag
+    y: e.weight
+  }));
+  const n = points.length;
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+  for (const p of points) {
+    sumX += p.x;
+    sumY += p.y;
+    sumXY += p.x * p.y;
+    sumX2 += p.x * p.x;
+    sumY2 += p.y * p.y;
   }
-  return { food: null, weight: null, caloriesPer100g: null };
-}
-function calculateCalories(food: string, weight: number | null, calPer100g: number): number {
-  const w = weight ?? 100;
-  return Math.round((w / 100) * calPer100g);
+  const denominator = n * sumX2 - sumX * sumX;
+  if (denominator === 0) return null;
+  const slope = (n * sumXY - sumX * sumY) / denominator;
+  const intercept = (sumY - slope * sumX) / n;
+  const ssRes = points.reduce((sum, p) => sum + (p.y - (slope * p.x + intercept)) ** 2, 0);
+  const ssTot = sumY2 - (sumY * sumY) / n;
+  const r2 = 1 - ssRes / ssTot;
+  return { slope, intercept, r2 };
 }
 
-// ─── CSS (modern, responsiv, flexibles Grid) ────────────────────────────
-const GS = `
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
-*{box-sizing:border-box;margin:0;padding:0;}
-body{background:#f0f4f8;}
-.cp{min-height:100vh;background:#f0f4f8;font-family:'Plus Jakarta Sans',sans-serif;color:#1c1c1e;padding-bottom:80px;}
-.hdr{background:#1e3a5f;padding:16px 20px;}
-.hdr-r{max-width:1400px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;}
-.hdr-logo{font-size:17px;font-weight:700;color:#fff;display:flex;align-items:center;gap:10px;}
-.hdr-badge{background:rgba(255,255,255,.15);border-radius:20px;padding:5px 12px;color:#fff;font-size:12px;font-weight:500;display:flex;align-items:center;gap:5px;}
-.main{max-width:1400px;margin:0 auto;padding:14px 14px 0;}
-.card-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(360px, 1fr));gap:14px;align-items:start;grid-auto-rows:minmax(min-content, auto);}
-.card{background:#fff;border-radius:20px;padding:18px;border:1px solid rgba(0,0,0,.05);box-shadow:0 1px 3px rgba(0,0,0,0.03);height:fit-content;}
-.card-dk{background:#1e3a5f;border-radius:20px;padding:18px;color:#fff;height:fit-content;}
-.slbl{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:5px;margin-bottom:12px;}
-.inp{width:100%;height:44px;border:1.5px solid #e2e8f0;border-radius:12px;padding:0 14px;font-size:14px;font-family:inherit;background:#fafafa;color:#1c1c1e;outline:none;transition:border-color .15s;}
-.inp:focus{border-color:#2563eb;background:#fff;}
-.sel{width:100%;height:44px;border:1.5px solid #e2e8f0;border-radius:12px;padding:0 12px;font-size:14px;font-family:inherit;background:#fafafa;color:#1c1c1e;outline:none;}
-.bp{background:#2563eb;border:none;border-radius:12px;padding:0 16px;height:40px;color:#fff;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:opacity .15s;flex-shrink:0;}
-.bp:hover{opacity:.85;}
-.bp:disabled{opacity:.4;cursor:not-allowed;}
-.bg{background:#f1f5f9;border:none;border-radius:12px;padding:0 14px;height:38px;color:#1e293b;font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-family:inherit;transition:background .15s;}
-.bg:hover{background:#e2e8f0;}
-.bic{background:#f1f5f9;border:none;border-radius:10px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;flex-shrink:0;color:#1e293b;}
-.bic:hover{background:#e2e8f0;}
-.bic.rec{background:#ff3b30;color:#fff;animation:pulse 1s infinite;}
-.bdel{background:none;border:none;cursor:pointer;color:#94a3b8;padding:4px;border-radius:6px;display:flex;align-items:center;transition:color .15s;}
-.bdel:hover{color:#ff3b30;}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
-@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-.spin{animation:spin 1s linear infinite;}
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.frow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f1f5f9;}
-.frow:last-child{border-bottom:none;}
-.fico{width:36px;height:36px;background:#f1f5f9;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0;}
-.fthumb{width:36px;height:36px;border-radius:9px;object-fit:cover;flex-shrink:0;}
-.erow{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:13px;}
-.erow:last-child{border-bottom:none;}
-.sw{border:1.5px solid #e2e8f0;border-radius:18px;overflow:hidden;margin-bottom:0;}
-.stgl{width:100%;background:#fafafa;border:none;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-family:inherit;font-size:14px;font-weight:500;color:#1c1c1e;}
-.stgl:hover{background:#f1f5f9;}
-.sbody{padding:18px;background:#fff;border-top:1px solid #e2e8f0;display:flex;flex-direction:column;gap:14px;}
-.lbl{font-size:12px;color:#64748b;display:block;margin-bottom:4px;}
-.aibox{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:10px 14px;display:flex;align-items:flex-start;gap:10px;margin-top:6px;}
-.aical{font-size:21px;font-weight:700;color:#15803d;line-height:1;}
-.aiexp{font-size:11px;color:#166534;margin-top:3px;}
-.bmibar{position:relative;height:10px;border-radius:40px;overflow:hidden;background:linear-gradient(to right,#3b82f6 0%,#3b82f6 20%,#16a34a 20%,#16a34a 60%,#f59e0b 60%,#f59e0b 85%,#ef4444 85%,#ef4444 100%);}
-.bmipip{position:absolute;top:-4px;width:18px;height:18px;background:#1e3a5f;border:3px solid #fff;border-radius:50%;transform:translateX(-50%);transition:left .5s;box-shadow:0 1px 4px rgba(0,0,0,.25);}
-.rw{position:relative;flex-shrink:0;}
-.ri{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-.gc{padding:5px 11px;border-radius:20px;border:1.5px solid;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;transition:all .15s;}
-.tbar{display:flex;background:#f1f5f9;border-radius:12px;padding:3px;gap:2px;margin-bottom:14px;}
-.tbtn{flex:1;border:none;border-radius:10px;padding:9px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px;transition:all .15s;background:transparent;color:#64748b;}
-.tbtn.on{background:#fff;color:#1c1c1e;box-shadow:0 1px 3px rgba(0,0,0,.1);}
-.moo{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:1000;}
-.mosh{background:#fff;border-radius:24px 24px 0 0;padding:20px 20px 34px;width:100%;max-width:680px;max-height:88vh;overflow-y:auto;}
-.mohdl{width:36px;height:4px;background:#d1d1d6;border-radius:40px;margin:0 auto 16px;}
-@media(min-width:600px){.moo{align-items:center;}.mosh{border-radius:24px;max-height:80vh;}}
-.aopt{width:100%;padding:10px 14px;border-radius:12px;border:1.5px solid #e2e8f0;text-align:left;background:#fff;cursor:pointer;font-family:inherit;transition:all .15s;}
-.aopt.on{border-color:#2563eb;background:#eff6ff;}
-.chart-container{min-height:200px;width:100%;margin:8px 0;}
+function getTrendWeeklyRate(entries: WeightEntry[]): number | null {
+  const reg = linearRegression(entries);
+  if (!reg) return null;
+  return reg.slope * 7; // kg pro Woche
+}
+
+function getProjectedWeightByTrend(entries: WeightEntry[], weeks: number): number | null {
+  const reg = linearRegression(entries);
+  if (!reg) return null;
+  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const lastDate = new Date(sorted[sorted.length - 1].date);
+  const firstDate = new Date(sorted[0].date);
+  const daysFromFirst = (lastDate.getTime() - firstDate.getTime()) / (1000 * 3600 * 24);
+  const lastWeight = reg.intercept + reg.slope * daysFromFirst;
+  return lastWeight + reg.slope * (weeks * 7);
+}
+
+function getPlanProjectedWeight(entries: WeightEntry[], result: CalorieResult | null, goalMode: 'lose' | 'maintain' | 'gain', weeks: number): number | null {
+  if (!result || entries.length === 0) return null;
+  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const last = sorted[sorted.length - 1];
+  const dailyDiff = result.goalCalories[goalMode] - result.tdee;
+  const weeklyKgChange = (dailyDiff * 7) / 7700;
+  return last.weight + weeklyKgChange * weeks;
+}
+
+// ==================== LEBENSMITTEL-DATENBANK + EMOJI ====================
+const foodDB: Record<string, number> = {
+  buchweizen: 343, buchweizenmehl: 335, haferflocken: 371, hafer: 389,
+  granola: 450, cornflakes: 378, dinkel: 338, dinkelmehl: 348,
+  weizenmehl: 340, vollkornmehl: 320, roggenmehl: 325, amaranth: 371,
+  quinoa: 120, hirse: 378, gerstengraupen: 352, bulgur: 83,
+  couscous: 112, polenta: 72, müsli: 380,
+  brot: 265, vollkornbrot: 247, toast: 300, brötchen: 280, toastbrot: 295,
+  baguette: 275, ciabatta: 271, pumpernickel: 218, knäckebrot: 350, zwieback: 390,
+  reis: 130, nudeln: 158, spaghetti: 158, pasta: 158, penne: 158,
+  vollkornnudeln: 148, glasnudeln: 351, reisnudeln: 109,
+  kartoffel: 77, kartoffeln: 77, süsskartoffel: 86, süßkartoffel: 86,
+  linsen: 116, rotelinsen: 116, kichererbsen: 164,
+  bohnen: 127, kidneybohnen: 127, erbsen: 81,
+  sojabohnen: 173, edamame: 121, tofu: 76, tempeh: 193, hummus: 166,
+  nüsse: 600, mandeln: 579, walnüsse: 654, cashews: 553, haselnüsse: 628,
+  erdnüsse: 567, pistazien: 562, macadamia: 718,
+  leinsamen: 534, chiasamen: 486, sonnenblumenkerne: 584, kürbiskerne: 559,
+  sesam: 573, sesamkerne: 573, hanfsamen: 553, mohn: 525,
+  erdnussbutter: 588, mandelbutter: 614,
+  hähnchen: 165, hühnchen: 165, hähnchenbrustfilet: 110, hähnchenbrust: 110,
+  rind: 250, rindfleisch: 250, hackfleisch: 230, rinderhack: 230,
+  schwein: 242, kotelett: 195, schweinebauch: 395,
+  lamm: 294, truthahn: 189, pute: 189, putenbrustfilet: 107,
+  ente: 337, kaninchen: 136, hirsch: 120,
+  speck: 541, bacon: 541, schinken: 145, kochschinken: 100,
+  salami: 378, chorizo: 386, bratwurst: 265, wurst: 270,
+  fisch: 150, lachs: 208, lachsfilet: 208, thunfisch: 144, thunfischdose: 116,
+  forelle: 119, kabeljau: 82, dorsch: 82, tilapia: 96, hering: 158,
+  makrele: 205, sardinen: 208, pangasius: 90,
+  garnelen: 85, crevetten: 85, krabben: 72, muscheln: 86, tintenfisch: 75,
+  ei: 155, hühnerei: 155, eiweiß: 52, eigelb: 322,
+  milch: 64, vollmilch: 64, halbfettmilch: 46, magermilch: 34,
+  butter: 717, margarine: 717,
+  käse: 350, gouda: 356, cheddar: 403, camembert: 297, brie: 334,
+  feta: 264, mozzarella: 280, parmesan: 431, emmentaler: 380,
+  frischkäse: 140, hüttenkäse: 98, ricotta: 174,
+  joghurt: 61, naturjoghurt: 61, griechischerjoghurt: 97, skyr: 63,
+  quark: 68, magerquark: 68, sahnequark: 136,
+  sahne: 292, schlagsahne: 292, schmand: 220,
+  öl: 884, olivenöl: 884, sonnenblumenöl: 884, kokosöl: 892, rapsöl: 884,
+  apfel: 52, birne: 57, orange: 47, mandarine: 53, grapefruit: 42,
+  zitrone: 29, banane: 89, erdbeere: 32, himbeere: 52,
+  heidelbeere: 57, blaubeere: 57, brombeere: 43, johannisbeere: 56,
+  weintraube: 69, kirsche: 63, pflaume: 46, pfirsich: 39, aprikose: 48,
+  mango: 60, ananas: 50, kiwi: 61, papaya: 43, wassermelone: 30,
+  melone: 34, feige: 74, dattel: 282, avocado: 160, granatapfel: 83,
+  salat: 15, kopfsalat: 13, rucola: 25, spinat: 23, mangold: 19,
+  gurke: 12, tomate: 18, paprika: 26,
+  zwiebel: 40, lauch: 31, knoblauch: 149,
+  karotte: 41, möhre: 41, sellerie: 17,
+  brokkoli: 34, blumenkohl: 25, rosenkohl: 43, wirsing: 27, kohl: 25,
+  rotkohl: 31, weißkohl: 25, chinakohl: 16,
+  zucchini: 17, kürbis: 26, butternutkürbis: 45, aubergine: 25,
+  pilze: 22, champignons: 22, steinpilze: 26, pfifferlinge: 32,
+  spargel: 20, artischocke: 53, fenchel: 31,
+  mais: 86,
+  schokolade: 546, vollmilchschokolade: 535, zartbitterschokolade: 560,
+  nutella: 530, marmelade: 250,
+  kuchen: 400, muffin: 380, keks: 450, plätzchen: 450,
+  croissant: 406, donut: 452, waffel: 291,
+  chips: 536, popcorn: 375, cracker: 430,
+  eis: 200, speiseeis: 200,
+  gummibärchen: 343, honig: 304, zucker: 387,
+  pizza: 266, burger: 295, hamburger: 295,
+  pommes: 312, kebab: 280, döner: 280, hotdog: 290,
+  ketchup: 112, mayonnaise: 680, senf: 70, sojasosse: 53,
+};
+
+const foodAliases: Record<string, string> = {
+  'haferbrei': 'haferflocken', 'porridge': 'haferflocken',
+  'chicken': 'hähnchen', 'huhn': 'hähnchen',
+  'beef': 'rind', 'steak': 'rind',
+  'salmon': 'lachs', 'tuna': 'thunfisch',
+  'apple': 'apfel', 'banana': 'banane',
+  'pommes frites': 'pommes',
+};
+
+const foodEmoji: Record<string, string> = {
+  apfel: '🍎', birne: '🍐', banane: '🍌', erdbeere: '🍓', himbeere: '🍓', heidelbeere: '🫐',
+  orange: '🍊', mandarine: '🍊', zitrone: '🍋', wassermelone: '🍉', traube: '🍇', kirsche: '🍒',
+  pfirsich: '🍑', mango: '🥭', avocado: '🥑', brot: '🍞', toast: '🍞', croissant: '🥐',
+  ei: '🥚', käse: '🧀', milch: '🥛', joghurt: '🥄', hähnchen: '🍗', rind: '🥩', fisch: '🐟', lachs: '🐟',
+  kartoffel: '🥔', salat: '🥗', tomate: '🍅', gurke: '🥒', paprika: '🫑', zwiebel: '🧅', knoblauch: '🧄',
+  nudeln: '🍝', reis: '🍚', pizza: '🍕', burger: '🍔', pommes: '🍟', kuchen: '🍰', schokolade: '🍫',
+};
+
+function getFoodEmoji(name: string): string {
+  const lower = name.toLowerCase();
+  for (const [key, emoji] of Object.entries(foodEmoji)) {
+    if (lower.includes(key)) return emoji;
+  }
+  return '🍽️';
+}
+
+interface ParsedItem { name: string; weight: number; unit: string; calories: number; kcalPer100g: number; }
+function parseFoodLine(input: string): { total: number; items: ParsedItem[] } | null {
+  let text = input.toLowerCase().trim();
+  if (!text) return null;
+  for (const [alias, target] of Object.entries(foodAliases)) {
+    text = text.replace(new RegExp(`\\b${alias}\\b`, 'gi'), target);
+  }
+
+  const results: ParsedItem[] = [];
+  const foods = Object.keys(foodDB).sort((a, b) => b.length - a.length);
+
+  for (const food of foods) {
+    const esc = food.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(?<![a-züäöß])${esc}(?![a-züäöß])`, 'i');
+    const match = regex.exec(text);
+    if (!match) continue;
+
+    const before = text.substring(0, match.index);
+    const after = text.substring(match.index + match[0].length);
+
+    let weight = 100;
+    let unit = 'g';
+
+    const patterns = [
+      { re: /(\d+(?:[.,]\d+)?)\s*kg\s*$/, mult: 1000, u: 'kg' },
+      { re: /(\d+(?:[.,]\d+)?)\s*(?:l|liter)\s*$/, mult: 1000, u: 'l' },
+      { re: /(\d+(?:[.,]\d+)?)\s*(?:el|esslöffel)\s*$/, mult: 15, u: 'EL' },
+      { re: /(\d+(?:[.,]\d+)?)\s*(?:tl|teelöffel)\s*$/, mult: 5, u: 'TL' },
+      { re: /(\d+(?:[.,]\d+)?)\s*tassen?\s*$/, mult: 240, u: 'Tasse' },
+      { re: /(\d+(?:[.,]\d+)?)\s*portionen?\s*$/, mult: 150, u: 'Portion' },
+      { re: /(\d+(?:[.,]\d+)?)\s*scheiben?\s*$/, mult: 30, u: 'Scheibe' },
+      { re: /(\d+(?:[.,]\d+)?)\s*(?:stück|stk)\s*$/, mult: 100, u: 'Stück' },
+      { re: /(\d+(?:[.,]\d+)?)\s*(?:g|gramm|ml)\s*$/, mult: 1, u: 'g' },
+      { re: /(\d+(?:[.,]\d+)?)\s*$/, mult: 1, u: 'g' },
+    ];
+    const afterPats = [
+      { re: /^\s*(\d+(?:[.,]\d+)?)\s*kg/, mult: 1000, u: 'kg' },
+      { re: /^\s*(\d+(?:[.,]\d+)?)\s*(?:l|liter)/, mult: 1000, u: 'l' },
+      { re: /^\s*(\d+(?:[.,]\d+)?)\s*(?:el|esslöffel)/, mult: 15, u: 'EL' },
+      { re: /^\s*(\d+(?:[.,]\d+)?)\s*(?:tl|teelöffel)/, mult: 5, u: 'TL' },
+      { re: /^\s*(\d+(?:[.,]\d+)?)\s*tassen?/, mult: 240, u: 'Tasse' },
+      { re: /^\s*(\d+(?:[.,]\d+)?)\s*portionen?/, mult: 150, u: 'Portion' },
+      { re: /^\s*(\d+(?:[.,]\d+)?)\s*scheiben?/, mult: 30, u: 'Scheibe' },
+      { re: /^\s*(\d+(?:[.,]\d+)?)\s*(?:stück|stk)/, mult: 100, u: 'Stück' },
+      { re: /^\s*(\d+(?:[.,]\d+)?)\s*(?:g|gramm|ml)/, mult: 1, u: 'g' },
+      { re: /^\s*(\d+(?:[.,]\d+)?)(?![a-zA-ZäöüÄÖÜ])/, mult: 1, u: 'g' },
+    ];
+
+    let found = false;
+    for (const p of patterns) {
+      const m = before.match(p.re);
+      if (m) { weight = parseFloat(m[1].replace(',', '.')) * p.mult; unit = p.u; found = true; break; }
+    }
+    if (!found) {
+      for (const p of afterPats) {
+        const m = after.match(p.re);
+        if (m) { weight = parseFloat(m[1].replace(',', '.')) * p.mult; unit = p.u; break; }
+      }
+    }
+
+    const kcalPer100g = foodDB[food];
+    const calories = Math.round((weight / 100) * kcalPer100g);
+    results.push({ name: food, weight, unit, calories, kcalPer100g });
+    text = text.replace(regex, ' ').replace(/\s+/g, ' ');
+  }
+
+  if (results.length === 0) return null;
+  const total = results.reduce((s, r) => s + r.calories, 0);
+  return { total, items: results };
+}
+
+// ==================== PROGNOSE (erweitert) ====================
+function buildPrognoseData(entries: WeightEntry[], goalMode: 'lose' | 'maintain' | 'gain', result: CalorieResult | null) {
+  if (!result || entries.length < 1) return [];
+  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const last = sorted[sorted.length - 1];
+  const dailyDiff = result.goalCalories[goalMode] - result.tdee;
+  const weeklyKgChange = (dailyDiff * 7) / 7700;
+
+  const historical = sorted.map(e => ({ date: e.date, label: e.date.slice(5), actual: e.weight, planPrognose: null as number | null, trendPrognose: null as number | null }));
+  const future: typeof historical = [];
+  const lastDate = new Date(last.date);
+  for (let w = 1; w <= 8; w++) {
+    const d = new Date(lastDate); d.setDate(d.getDate() + w * 7);
+    future.push({ date: fmtDate(d), label: fmtDate(d).slice(5), actual: null, planPrognose: +(last.weight + weeklyKgChange * w).toFixed(2), trendPrognose: null });
+  }
+  return [...historical, ...future].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function buildTrendPrognoseData(entries: WeightEntry[], weeks: number = 8) {
+  if (entries.length < 2) return [];
+  const reg = linearRegression(entries);
+  if (!reg) return [];
+  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const firstDate = new Date(sorted[0].date).getTime();
+  const lastDate = new Date(sorted[sorted.length - 1].date);
+  const startDay = (lastDate.getTime() - firstDate) / (1000 * 3600 * 24);
+  const result = [];
+  for (let w = 0; w <= weeks; w++) {
+    const futureDate = new Date(lastDate);
+    futureDate.setDate(futureDate.getDate() + w * 7);
+    const day = startDay + w * 7;
+    const weight = reg.intercept + reg.slope * day;
+    result.push({
+      date: fmtDate(futureDate),
+      label: fmtDate(futureDate).slice(5),
+      trendPrognose: +weight.toFixed(2)
+    });
+  }
+  return result;
+}
+
+function getExpectedToday(entries: WeightEntry[], result: CalorieResult | null, goalMode: 'lose' | 'maintain' | 'gain') {
+  if (!result || entries.length < 1) return null;
+  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const first = sorted[0];
+  const daysPassed = Math.floor((new Date().getTime() - new Date(first.date).getTime()) / 86400000);
+  if (daysPassed <= 0) return null;
+  const dailyDiff = result.goalCalories[goalMode] - result.tdee;
+  const expected = +(first.weight + (dailyDiff * daysPassed) / 7700).toFixed(1);
+  const current = sorted[sorted.length - 1].weight;
+  return { expected, diff: +(current - expected).toFixed(1), current };
+}
+
+// ==================== CSS ====================
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f5f7fb; font-family: 'Inter', sans-serif; }
+  .cp { min-height: 100vh; background: #f5f7fb; padding-bottom: 80px; }
+  .hdr { background: linear-gradient(135deg, #1e3a5f 0%, #0f2b44 100%); padding: 20px 20px; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  .hdr-r { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+  .hdr-logo { font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 12px; }
+  .hdr-badge { background: rgba(255,255,255,.15); backdrop-filter: blur(4px); border-radius: 20px; padding: 6px 14px; color: #fff; font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .main { max-width: 1400px; margin: 0 auto; padding: 20px 16px; }
+  .card-grid { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
+  @media(min-width: 640px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media(min-width: 1024px) { .card-grid { grid-template-columns: repeat(3, 1fr); } }
+  .card { background: #fff; border-radius: 16px; padding: 18px; box-shadow: 0 8px 20px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02); transition: transform 0.2s, box-shadow 0.2s; border: 1px solid rgba(0,0,0,0.03); }
+  .card:hover { transform: translateY(-2px); box-shadow: 0 16px 28px -8px rgba(0,0,0,0.08); }
+  .card-dk { background: linear-gradient(145deg, #1e3a5f, #132f4a); border-radius: 16px; padding: 18px; color: #fff; box-shadow: 0 12px 24px -8px rgba(0,0,0,0.2); }
+  .card-full { grid-column: 1/-1; }
+  @media(max-width: 639px) { .card-full { grid-column: 1; } }
+  .slbl { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+  .inp { width: 100%; height: 44px; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0 14px; font-size: 14px; font-family: inherit; background: #fafcff; transition: all 0.2s; }
+  .inp:focus { border-color: #2563eb; background: #fff; outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+  .sel { width: 100%; height: 44px; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0 12px; font-size: 14px; background: #fafcff; }
+  .bp { background: #2563eb; border: none; border-radius: 12px; padding: 0 18px; height: 44px; color: #fff; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+  .bp:hover { background: #1d4ed8; transform: scale(0.98); }
+  .bg { background: #f1f5f9; border: none; border-radius: 12px; padding: 0 16px; height: 40px; color: #1e293b; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s; }
+  .bg:hover { background: #e2e8f0; }
+  .bic { background: #f1f5f9; border: none; border-radius: 12px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: #1e293b; }
+  .bic:hover { background: #e2e8f0; transform: scale(0.96); }
+  .bic.rec { background: #ff3b30; color: #fff; animation: pulse 1.2s infinite; }
+  .bdel { background: none; border: none; cursor: pointer; color: #94a3b8; padding: 6px; border-radius: 8px; transition: all 0.2s; }
+  .bdel:hover { color: #ff3b30; background: #fee2e2; }
+  .bedit { background: none; border: none; cursor: pointer; color: #94a3b8; padding: 6px; border-radius: 8px; transition: all 0.2s; }
+  .bedit:hover { color: #2563eb; background: #e0f2fe; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .spin { animation: spin 1s linear infinite; }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeInUp 0.3s ease-out; }
+  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .frow { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; transition: background 0.1s; }
+  .frow:hover { background: #f8fafc; border-radius: 12px; padding-left: 6px; }
+  .fico { width: 40px; height: 40px; background: #f1f5f9; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .erow { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+  .sw { background: #fff; border-radius: 16px; overflow: hidden; }
+  .stgl { width: 100%; background: #fff; border: none; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; color: #0f172a; }
+  .stgl:hover { background: #f8fafc; }
+  .sbody { padding: 0 18px 18px 18px; background: #fff; display: flex; flex-direction: column; gap: 14px; }
+  .lbl { font-size: 12px; font-weight: 500; color: #475569; display: block; margin-bottom: 6px; }
+  .aibox { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 12px 14px; margin-top: 8px; }
+  .aidetail { font-size: 11px; color: #166534; margin-top: 8px; line-height: 1.6; background: #e7fdf0; border-radius: 12px; padding: 8px 12px; }
+  .bmibar { position: relative; height: 8px; border-radius: 20px; overflow: hidden; background: linear-gradient(to right, #3b82f6 0%, #3b82f6 20%, #16a34a 20%, #16a34a 60%, #f59e0b 60%, #f59e0b 85%, #ef4444 85%, #ef4444 100%); }
+  .bmipip { position: absolute; top: -3px; width: 16px; height: 16px; background: #1e3a5f; border: 3px solid #fff; border-radius: 50%; transform: translateX(-50%); transition: left 0.5s cubic-bezier(0.2,0.9,0.4,1.1); box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+  .rw { position: relative; flex-shrink: 0; }
+  .ri { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .gc { padding: 6px 14px; border-radius: 20px; border: 1.5px solid; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .tbar { display: flex; background: #f1f5f9; border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 18px; }
+  .tbtn { flex: 1; border: none; border-radius: 8px; padding: 10px; font-size: 12px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s; background: transparent; color: #64748b; }
+  .tbtn.on { background: #fff; color: #0f172a; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+  .moo { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); display: flex; align-items: flex-end; justify-content: center; z-index: 1000; }
+  .mosh { background: #fff; border-radius: 20px 20px 0 0; padding: 24px 20px 32px; width: 100%; max-width: 680px; max-height: 88vh; overflow-y: auto; }
+  @media(min-width: 600px) { .moo { align-items: center; } .mosh { border-radius: 20px; max-height: 80vh; } }
+  .mohdl { width: 44px; height: 5px; background: #d1d5db; border-radius: 20px; margin: 0 auto 20px; }
+  .aopt { width: 100%; padding: 10px 14px; border-radius: 12px; border: 1.5px solid #e2e8f0; text-align: left; background: #fff; cursor: pointer; transition: all 0.2s; margin-bottom: 6px; }
+  .aopt.on { border-color: #2563eb; background: #eff6ff; }
+  .chart-w { width: 100%; height: 150px; }
+  .chart-wl { width: 100%; height: 180px; }
+  .erfolg-stat { display: flex; flex-direction: column; align-items: center; background: #f8fafc; border-radius: 12px; padding: 10px 12px; flex: 1; min-width: 80px; }
+  .hinweis { background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #92400e; display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+  .voice-warn { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #9a3412; margin-bottom: 12px; }
+  .sport-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; max-height: 280px; overflow-y: auto; padding: 4px; }
+  .sport-card { display: flex; flex-direction: column; align-items: center; gap: 8px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px 8px; cursor: pointer; transition: all 0.2s; }
+  .sport-card.selected { border-color: #2563eb; background: #eff6ff; transform: scale(0.98); }
+  .sport-card:hover { background: #f1f5f9; transform: translateY(-2px); }
+  .sport-icon { width: 44px; height: 44px; background: #fff; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+  .mini-dashboard { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+  .mini-card { flex: 1; min-width: 200px; background: #f8fafc; border-radius: 12px; padding: 12px; border: 1px solid #e2e8f0; }
+  .mini-card h4 { font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px; display: flex; align-items: center; gap: 4px; }
+  .mini-value { font-size: 20px; font-weight: 700; color: #1e3a5f; }
+  .mini-unit { font-size: 10px; font-weight: 400; color: #64748b; }
+  .mini-chart { height: 60px; width: 100%; margin-top: 8px; }
+  .abweichung-table { font-size: 11px; width: 100%; border-collapse: collapse; margin-top: 12px; }
+  .abweichung-table th, .abweichung-table td { padding: 6px 4px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+  .abweichung-table th { color: #64748b; font-weight: 600; }
+  .positiv { color: #16a34a; }
+  .negativ { color: #dc2626; }
 `;
 
-// ─── Ring Chart ─────────────────────────────────────────────────────────
-function Ring({ pct, size = 112, sw = 11, color = '#30d158' }: { pct: number; size?: number; sw?: number; color?: string }) {
+// ==================== RING ====================
+function Ring({ pct, size = 90, sw = 10, color = '#30d158' }: { pct: number; size?: number; sw?: number; color?: string }) {
   const r = (size - sw) / 2, c = 2 * Math.PI * r, d = Math.min(pct / 100, 1) * c;
   return (
     <svg width={size} height={size} style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}>
@@ -181,406 +459,251 @@ function Ring({ pct, size = 112, sw = 11, color = '#30d158' }: { pct: number; si
   );
 }
 
-// ─── Food Modal (mit lokalen Vorschlägen) ───────────────────────────────
+// ==================== FOOD MODAL ====================
 function FoodModal({ onClose, onSave }: { onClose: () => void; onSave: (e: Omit<FoodEntry, 'id'>) => void }) {
-  const [tab, setTab] = useState<'manual' | 'voice' | 'photo'>('manual');
+  const [tab, setTab] = useState<'manual' | 'voice'>('manual');
   const [name, setName] = useState('');
   const [cals, setCals] = useState('');
-  const [time, setTime] = useState(nt());
+  const [time, setTime] = useState(nowTime());
   const [listening, setListening] = useState(false);
-  const [localSuggestion, setLocalSuggestion] = useState<{ calories: number; explanation: string } | null>(null);
-  const [showExp, setShowExp] = useState(false);
-  const [photoPrev, setPhotoPrev] = useState<string | null>(null);
-  const [photoB64, setPhotoB64] = useState<string | null>(null);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [photoRes, setPhotoRes] = useState<{ name: string; calories: number; explanation: string } | null>(null);
-  const [photoExp, setPhotoExp] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [voiceOk, setVoiceOk] = useState(true);
+  const [parsed, setParsed] = useState<ReturnType<typeof parseFoodLine> | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
+  const [userEdited, setUserEdited] = useState(false);
   const tmr = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    setVoiceOk(!!SR);
+  }, []);
+
+  useEffect(() => {
     if (tmr.current) clearTimeout(tmr.current);
-    if (!name.trim() || tab !== 'manual') { setLocalSuggestion(null); return; }
+    if (!name.trim()) { setParsed(null); return; }
     tmr.current = setTimeout(() => {
-      const parsed = parseFoodAndWeight(name);
-      if (parsed.food && parsed.caloriesPer100g) {
-        const cal = calculateCalories(parsed.food, parsed.weight, parsed.caloriesPer100g);
-        const weightText = parsed.weight ? `${parsed.weight}g` : '100g';
-        setLocalSuggestion({
-          calories: cal,
-          explanation: `${parsed.food} (${weightText}) ≈ ${cal} kcal`
-        });
-      } else {
-        setLocalSuggestion(null);
-      }
-    }, 300);
+      const r = parseFoodLine(name);
+      setParsed(r);
+      if (r && !userEdited) setCals(String(r.total));
+    }, 350);
     return () => { if (tmr.current) clearTimeout(tmr.current); };
-  }, [name, tab]);
+  }, [name, userEdited]);
 
   const startVoice = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { alert('Keine Spracheingabe verfügbar'); return; }
+    if (!SR) return;
     const rec = new SR(); rec.lang = 'de-DE';
-    rec.onstart = () => setListening(true); rec.onend = () => setListening(false);
-    rec.onresult = async (e: any) => {
+    rec.onstart = () => setListening(true);
+    rec.onend = () => setListening(false);
+    rec.onresult = (e: any) => {
       const text: string = e.results[0][0].transcript;
-      const cm = text.match(/(\d+)\s*(?:kalorien|kcal|cal)/i), nm = text.match(/(\d{2,4})/);
-      const cal = cm ? parseInt(cm[1]) : nm ? parseInt(nm[1]) : 0;
-      const cleaned = text.replace(/(\d+)\s*(?:kalorien|kcal|cal)?/gi, '').replace(/\s+/g, ' ').trim() || text;
-      setName(cleaned);
-      if (cal > 0) setCals(String(cal));
+      const cm = text.match(/(\d+)\s*(?:kalorien|kcal|cal)/i);
+      const spokenCal = cm ? parseInt(cm[1]) : 0;
+      const cleaned = text.replace(/(\d+)\s*(?:kalorien|kcal|cal)/gi, '').trim() || text;
+      setName(cleaned); setUserEdited(false);
+      if (spokenCal > 0) { setCals(String(spokenCal)); setUserEdited(true); }
     };
-    rec.onerror = () => setListening(false); rec.start();
+    rec.onerror = () => setListening(false);
+    rec.start();
   };
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]; if (!f) return;
-    const reader = new FileReader();
-    reader.onload = ev => { const d = ev.target?.result as string; setPhotoPrev(d); setPhotoB64(d.split(',')[1]); setPhotoRes(null); };
-    reader.readAsDataURL(f);
-  };
-
-  const doAnalyze = async () => { if (!photoB64) return; setAnalyzing(true); /* KI optional */ setAnalyzing(false); };
-  const acceptSuggestion = () => { if (localSuggestion) setCals(String(localSuggestion.calories)); };
 
   const save = () => {
     const cal = parseInt(cals);
     if (!name.trim() || isNaN(cal) || cal <= 0) { alert('Bitte Name und Kalorien eingeben.'); return; }
-    onSave({ date: td(), time, name: name.trim(), calories: cal, source: tab, photoPreview: tab === 'photo' ? (photoPrev ?? undefined) : undefined });
+    onSave({ date: todayStr(), time, name: name.trim(), calories: cal, source: tab, photoPreview: undefined });
     onClose();
   };
+
+  const emoji = getFoodEmoji(name);
 
   return (
     <div className="moo" onClick={onClose}>
       <div className="mosh" onClick={e => e.stopPropagation()}>
         <div className="mohdl" />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <span style={{ fontSize: 18, fontWeight: 700 }}>Mahlzeit eintragen</span>
-          <button className="bic" style={{ width: 34, height: 34 }} onClick={onClose}><X size={15} /></button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <span style={{ fontSize: 20, fontWeight: 700 }}>➕ Mahlzeit</span>
+          <button className="bic" style={{ width: 40, height: 40 }} onClick={onClose}><X size={18} /></button>
         </div>
         <div className="tbar">
-          {(['manual', 'voice', 'photo'] as const).map(t => (
-            <button key={t} className={`tbtn ${tab === t ? 'on' : ''}`} onClick={() => setTab(t)}>
-              {t === 'manual' && <><UtensilsCrossed size={13} />Tippen</>}
-              {t === 'voice' && <><Mic size={13} />Sprache</>}
-              {t === 'photo' && <><Camera size={13} />Foto</>}
-            </button>
-          ))}
+          <button className={`tbtn ${tab === 'manual' ? 'on' : ''}`} onClick={() => setTab('manual')}><UtensilsCrossed size={14} />Tippen</button>
+          <button className={`tbtn ${tab === 'voice' ? 'on' : ''}`} onClick={() => setTab('voice')}><Mic size={14} />Sprache</button>
         </div>
 
         {tab === 'voice' && (
-          <div style={{ background: '#f1f5f9', borderRadius: 14, padding: '14px', marginBottom: 12, textAlign: 'center' }}>
-            <button className={`bic ${listening ? 'rec' : ''}`} style={{ width: 52, height: 52, borderRadius: 26, margin: '0 auto 8px' }} onClick={startVoice}><Mic size={22} /></button>
-            <p style={{ fontSize: 12, color: '#64748b' }}>z.B. <b>„Apfel"</b> oder <b>„Pizza 600 Kalorien"</b></p>
+          <div style={{ background: '#f1f5f9', borderRadius: 16, padding: 16, marginBottom: 16, textAlign: 'center' }}>
+            {voiceOk ? (
+              <>
+                <button className={`bic ${listening ? 'rec' : ''}`} style={{ width: 56, height: 56, borderRadius: 28, margin: '0 auto 10px' }} onClick={startVoice}>
+                  <Mic size={24} />
+                </button>
+                <p style={{ fontSize: 12, color: '#64748b' }}>{listening ? '🔴 Aufnahme läuft…' : 'z.B. „Haferflocken 80g mit Milch 200ml"'}</p>
+              </>
+            ) : (
+              <div className="voice-warn"><b>Spracheingabe nicht verfügbar</b><br />Bitte tippe die Mahlzeit unten ein.</div>
+            )}
           </div>
         )}
 
         {(tab === 'manual' || tab === 'voice') && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div><label className="lbl">Bezeichnung</label><input className="inp" value={name} onChange={e => setName(e.target.value)} placeholder={tab === 'manual' ? 'z.B. Apfel 150g' : 'Erkannter Text…'} /></div>
-            {localSuggestion && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <label className="lbl">Lebensmittel mit Menge</label>
+              <div style={{ position: 'relative' }}>
+                <input className="inp" value={name} onChange={e => { setName(e.target.value); setUserEdited(false); }}
+                  placeholder="z.B. Buchweizen 80g, Milch 200ml, Ei 2 Stück" />
+                <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 22 }}>{emoji}</span>
+              </div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Mengen: 80g · 2 EL · 1 Tasse · 1 Portion …</div>
+            </div>
+
+            {parsed && (
               <div className="aibox">
-                <Sparkles size={15} color="#15803d" style={{ flexShrink: 0, marginTop: 2 }} />
-                <div style={{ flex: 1 }}>
-                  <div className="aical">{localSuggestion.calories} kcal</div>
-                  <button onClick={() => setShowExp(!showExp)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-                    <div className="aiexp" style={{ textDecoration: 'underline', textDecorationStyle: 'dotted' }}>{showExp ? localSuggestion.explanation : '▸ Schätzung anzeigen'}</div>
-                  </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Sparkles size={14} color="#15803d" />
+                  <span style={{ fontSize: 20, fontWeight: 700, color: '#15803d' }}>{parsed.total} kcal</span>
+                  <span style={{ fontSize: 12, color: '#16a34a' }}>automatisch</span>
+                  <button onClick={() => setShowDetail(!showDetail)} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 11, color: '#0f766e', textDecoration: 'underline' }}>{showDetail ? 'ausblenden' : 'Details'}</button>
                 </div>
-                <button className="bg" style={{ height: 32, padding: '0 12px', fontSize: 12 }} onClick={acceptSuggestion}>Übernehmen</button>
+                {showDetail && <div className="aidetail">{parsed.items.map((item, i) => <div key={i}><b>{item.name}</b>: {item.weight}g × {item.kcalPer100g} = {item.calories} kcal</div>)}</div>}
               </div>
             )}
-            <div><label className="lbl">Kalorien (kcal)</label><input className="inp" type="number" value={cals} onChange={e => setCals(e.target.value)} placeholder="Eingeben oder Vorschlag übernehmen" min={1} /></div>
+
+            <div><label className="lbl">Kalorien (kcal)</label><input className="inp" type="number" value={cals} onChange={e => { setCals(e.target.value); setUserEdited(true); }} placeholder="kcal" min={1} /></div>
             <div><label className="lbl">Uhrzeit</label><input className="inp" type="time" value={time} onChange={e => setTime(e.target.value)} /></div>
           </div>
         )}
 
-        {tab === 'photo' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div onClick={() => fileRef.current?.click()} style={{ border: '2px dashed #cbd5e1', borderRadius: 14, padding: 24, textAlign: 'center', cursor: 'pointer', background: '#fafafa' }}>
-              {photoPrev ? <img src={photoPrev} alt="" style={{ maxHeight: 190, borderRadius: 10, objectFit: 'cover', maxWidth: '100%' }} />
-                : <><Camera size={28} color="#94a3b8" style={{ margin: '0 auto 8px' }} /><p style={{ fontSize: 13, color: '#64748b' }}>Foto aufnehmen oder auswählen</p></>}
-              <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: 'none' }} />
-            </div>
-            {photoPrev && !photoRes && <button className="bp" style={{ width: '100%', justifyContent: 'center', height: 44 }} onClick={doAnalyze} disabled={analyzing}>{analyzing ? <><Loader2 size={15} className="spin" />KI analysiert…</> : <><Sparkles size={15} />Foto analysieren</>}</button>}
-            {photoRes && (
-              <div className="aibox" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Sparkles size={15} color="#15803d" />
-                  <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14 }}>{photoRes.name}</div><div className="aical">{photoRes.calories} kcal</div></div>
-                  <button className="bg" style={{ height: 32, padding: '0 12px', fontSize: 12 }} onClick={() => { setName(photoRes.name); setCals(String(photoRes.calories)); }}>Übernehmen</button>
-                </div>
-                <button onClick={() => setPhotoExp(!photoExp)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}><div className="aiexp" style={{ textDecoration: 'underline', textDecorationStyle: 'dotted' }}>{photoExp ? photoRes.explanation : '▸ Schätzung anzeigen'}</div></button>
-              </div>
-            )}
-            {(name || parseInt(cals) > 0) && <>
-              <div><label className="lbl">Bezeichnung</label><input className="inp" value={name} onChange={e => setName(e.target.value)} /></div>
-              <div><label className="lbl">Kalorien (kcal)</label><input className="inp" type="number" value={cals} onChange={e => setCals(e.target.value)} /></div>
-              <div><label className="lbl">Uhrzeit</label><input className="inp" type="time" value={time} onChange={e => setTime(e.target.value)} /></div>
-            </>}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
           <button className="bg" onClick={onClose} style={{ flex: 1, justifyContent: 'center' }}>Abbrechen</button>
-          <button className="bp" onClick={save} style={{ flex: 2, justifyContent: 'center', height: 44 }}><Save size={14} />Speichern</button>
+          <button className="bp" onClick={save} style={{ flex: 2, justifyContent: 'center', height: 48 }}><Save size={14} />Speichern</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Activity Modal ─────────────────────────────────────────────────────
-function ActivityMo({ weight, onClose, onSave }: { weight: number; onClose: () => void; onSave: (a: Omit<ActivityEntry, 'id'>) => void }) {
-  const [sport, setSport] = useState(SPORTS[0]);
-  const [dur, setDur] = useState(30);
+// ==================== ACTIVITY MODAL ====================
+function ActivityModal({ weight, onClose, onSave }: { weight: number; onClose: () => void; onSave: (a: Omit<ActivityEntry, 'id'>) => void }) {
+  const [selectedSport, setSelectedSport] = useState(SPORTS[0]);
+  const [duration, setDuration] = useState(30);
   const [custom, setCustom] = useState(false);
-  const [cMet, setCMet] = useState('');
-  const met = custom ? parseFloat(cMet) || 0 : sport.met;
-  const cal = Math.round(met * weight * (dur / 60));
-  const save = () => { if (!met || dur <= 0) return; onSave({ date: td(), sport: custom ? `Custom (MET ${met})` : sport.name, durationMinutes: dur, caloriesBurned: cal, met }); onClose(); };
+  const [customMet, setCustomMet] = useState('');
+  const met = custom ? parseFloat(customMet) || 0 : selectedSport.met;
+  const calories = Math.round(met * weight * (duration / 60));
   return (
     <div className="moo" onClick={onClose}>
       <div className="mosh" onClick={e => e.stopPropagation()}>
         <div className="mohdl" />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <span style={{ fontSize: 18, fontWeight: 700 }}>Aktivität eintragen</span>
-          <button className="bic" style={{ width: 34, height: 34 }} onClick={onClose}><X size={15} /></button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <span style={{ fontSize: 20, fontWeight: 700 }}>🏃 Aktivität</span>
+          <button className="bic" style={{ width: 40, height: 40 }} onClick={onClose}><X size={18} /></button>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div><label className="lbl">Sportart</label>
-            <select className="sel" value={sport.name} disabled={custom} onChange={e => { const s = SPORTS.find(x => x.name === e.target.value); if (s) setSport(s); }}>
-              {SPORTS.map(s => <option key={s.name}>{s.name} (MET {s.met})</option>)}
-            </select>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 13, color: '#64748b', cursor: 'pointer' }}>
-              <input type="checkbox" checked={custom} onChange={e => setCustom(e.target.checked)} />Eigener MET-Wert
-              {custom && <input className="inp" type="number" step=".1" value={cMet} onChange={e => setCMet(e.target.value)} placeholder="z.B. 6.5" style={{ width: 90, height: 36 }} />}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div>
+            <label className="lbl">Sportart wählen</label>
+            {!custom ? (
+              <div className="sport-grid">
+                {SPORTS.map(sport => {
+                  const Icon = sport.icon;
+                  return (
+                    <div key={sport.name} className={`sport-card ${selectedSport.name === sport.name ? 'selected' : ''}`} onClick={() => setSelectedSport(sport)}>
+                      <div className="sport-icon"><Icon size={24} strokeWidth={1.5} /></div>
+                      <div style={{ fontSize: 12, fontWeight: 500, textAlign: 'center' }}>{sport.name.split('(')[0]}</div>
+                      <div style={{ fontSize: 10, color: '#64748b' }}>MET {sport.met}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <input className="inp" type="number" step="0.1" value={customMet} onChange={e => setCustomMet(e.target.value)} placeholder="MET-Wert (z.B. 6.5)" />
+            )}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={custom} onChange={e => setCustom(e.target.checked)} /> Eigener MET-Wert
             </label>
           </div>
-          <div><label className="lbl">Dauer (Minuten)</label><input className="inp" type="number" value={dur} onChange={e => setDur(Math.max(1, parseInt(e.target.value) || 0))} min={1} /></div>
-          <div style={{ background: '#f1f5f9', borderRadius: 14, padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div><label className="lbl">Dauer (Minuten)</label><input className="inp" type="number" value={duration} onChange={e => setDuration(Math.max(1, parseInt(e.target.value) || 0))} min={1} /></div>
+          <div style={{ background: '#f1f5f9', borderRadius: 16, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 14, color: '#64748b' }}>Verbrauch geschätzt</span>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#2563eb' }}>{cal} <span style={{ fontSize: 13, fontWeight: 400 }}>kcal</span></span>
+            <span style={{ fontSize: 26, fontWeight: 700, color: '#2563eb' }}>{calories} <span style={{ fontSize: 13, fontWeight: 400 }}>kcal</span></span>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
           <button className="bg" onClick={onClose} style={{ flex: 1, justifyContent: 'center' }}>Abbrechen</button>
-          <button className="bp" onClick={save} style={{ flex: 2, justifyContent: 'center', height: 44 }}><Save size={14} />Speichern</button>
+          <button className="bp" onClick={() => { if ((!custom && selectedSport) || (custom && customMet)) { onSave({ date: todayStr(), sport: custom ? `Custom MET ${met}` : selectedSport.name, durationMinutes: duration, caloriesBurned: calories, met }); onClose(); } }} style={{ flex: 2, justifyContent: 'center', height: 48 }}><Save size={14} />Speichern</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Weight Modal ───────────────────────────────────────────────────────
-function WeightMo({ onClose, onSave, cur }: { onClose: () => void; onSave: (w: number, d: string) => void; cur: number }) {
-  const [w, setW] = useState(String(cur)); const [d, setD] = useState(td()); const [listening, setListening] = useState(false);
+// ==================== WEIGHT MODAL, BT MODAL, EDIT CAL MODAL ====================
+function WeightModal({ onClose, onSave, currentWeight }: { onClose: () => void; onSave: (w: number, d: string) => void; currentWeight: number }) {
+  const [weight, setWeight] = useState(String(currentWeight));
+  const [date, setDate] = useState(todayStr());
+  const [listening, setListening] = useState(false);
   const startVoice = () => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition; if (!SR) return;
     const rec = new SR(); rec.lang = 'de-DE';
     rec.onstart = () => setListening(true); rec.onend = () => setListening(false);
-    rec.onresult = (e: any) => { const t = e.results[0][0].transcript; const m = t.match(/(\d+)[,.](\d+)/); const v = m ? parseFloat(m[1] + '.' + m[2]) : parseFloat(t.match(/(\d+)/)?.[1] || '0'); if (v > 0 && v < 300) setW(String(v)); };
-    rec.onerror = () => setListening(false); rec.start();
+    rec.onresult = (e: any) => { const t = e.results[0][0].transcript; const m = t.match(/(\d+)[,.](\d+)/); const v = m ? parseFloat(m[1] + '.' + m[2]) : parseFloat(t.match(/(\d+)/)?.[1] || '0'); if (v > 0 && v < 300) setWeight(String(v)); };
+    rec.start();
   };
   return (
     <div className="moo" onClick={onClose}>
       <div className="mosh" onClick={e => e.stopPropagation()}>
         <div className="mohdl" />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <span style={{ fontSize: 18, fontWeight: 700 }}>Gewicht eintragen</span>
-          <button className="bic" style={{ width: 34, height: 34 }} onClick={onClose}><X size={15} /></button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}><span style={{ fontSize: 20, fontWeight: 700 }}>⚖️ Gewicht</span><button className="bic" style={{ width: 40, height: 40 }} onClick={onClose}><X size={18} /></button></div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div><label className="lbl">Datum</label><input className="inp" type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
+          <div><label className="lbl">Gewicht (kg)</label><div style={{ display: 'flex', gap: 8 }}><input className="inp" type="number" step=".1" value={weight} onChange={e => setWeight(e.target.value)} style={{ flex: 1 }} /><button className={`bic ${listening ? 'rec' : ''}`} onClick={startVoice}><Mic size={16} /></button></div></div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div><label className="lbl">Datum</label><input className="inp" type="date" value={d} onChange={e => setD(e.target.value)} /></div>
-          <div><label className="lbl">Gewicht (kg)</label>
-            <div style={{ display: 'flex', gap: 8 }}><input className="inp" type="number" step=".1" value={w} onChange={e => setW(e.target.value)} style={{ flex: 1 }} />
-              <button className={`bic ${listening ? 'rec' : ''}`} onClick={startVoice}><Mic size={16} /></button>
-            </div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
           <button className="bg" onClick={onClose} style={{ flex: 1, justifyContent: 'center' }}>Abbrechen</button>
-          <button className="bp" onClick={() => { const v = parseFloat(w); if (v > 0 && v < 300) { onSave(v, d); onClose(); } }} style={{ flex: 2, justifyContent: 'center', height: 44 }}><Save size={14} />Speichern</button>
+          <button className="bp" onClick={() => { const v = parseFloat(weight); if (v > 0 && v < 300) { onSave(v, date); onClose(); } }} style={{ flex: 2, justifyContent: 'center', height: 48 }}><Save size={14} />Speichern</button>
         </div>
       </div>
     </div>
   );
 }
-
-// ─── Bluetooth‑Waage Modal (Demo) ───────────────────────────────────────
-function BluetoothScaleModal({ onClose, onWeightRead }: { onClose: () => void; onWeightRead: (weight: number) => void }) {
-  const [status, setStatus] = useState<'idle' | 'scanning' | 'connected' | 'reading' | 'error'>('idle');
-  const [deviceName, setDeviceName] = useState<string | null>(null);
-
-  const startScan = () => {
-    setStatus('scanning');
-    setTimeout(() => {
-      if (navigator.bluetooth && navigator.bluetooth.requestDevice) {
-        setDeviceName('Smart Scale X1');
-        setStatus('connected');
-      } else {
-        setDeviceName('Demo‑Waage (simuliert)');
-        setStatus('connected');
-      }
-    }, 1500);
-  };
-
-  const readWeight = () => {
-    setStatus('reading');
-    setTimeout(() => {
-      const simulatedWeight = +(Math.random() * 70 + 50).toFixed(1);
-      onWeightRead(simulatedWeight);
-      onClose();
-    }, 1000);
-  };
-
+function BtModal({ onClose, onRead }: { onClose: () => void; onRead: (w: number) => void }) {
+  const [st, setSt] = useState<'idle' | 'scan' | 'conn' | 'read'>('idle');
   return (
     <div className="moo" onClick={onClose}>
       <div className="mosh" onClick={e => e.stopPropagation()}>
         <div className="mohdl" />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <span style={{ fontSize: 18, fontWeight: 700 }}>Bluetooth‑Waage verbinden</span>
-          <button className="bic" style={{ width: 34, height: 34 }} onClick={onClose}><X size={15} /></button>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {status === 'idle' && (
-            <button className="bp" onClick={startScan} style={{ justifyContent: 'center', height: 48 }}>
-              <Bluetooth size={18} /> Gerät suchen
-            </button>
-          )}
-          {status === 'scanning' && (
-            <div style={{ textAlign: 'center' }}>
-              <Loader2 size={28} className="spin" style={{ margin: '0 auto 12px' }} />
-              <p>Suche nach Waagen...</p>
-            </div>
-          )}
-          {status === 'connected' && (
-            <>
-              <div style={{ background: '#f0fdf4', borderRadius: 12, padding: 12, textAlign: 'center' }}>
-                <Bluetooth size={20} color="#15803d" style={{ margin: '0 auto 8px' }} />
-                <p>Verbunden mit <strong>{deviceName}</strong></p>
-              </div>
-              <button className="bp" onClick={readWeight} style={{ justifyContent: 'center' }}>
-                <Scale size={16} /> Gewicht abrufen
-              </button>
-            </>
-          )}
-          {status === 'reading' && (
-            <div style={{ textAlign: 'center' }}>
-              <Loader2 size={28} className="spin" style={{ margin: '0 auto 12px' }} />
-              <p>Lese Gewicht...</p>
-            </div>
-          )}
-          {status === 'error' && (
-            <div style={{ background: '#fef2f2', borderRadius: 12, padding: 12, textAlign: 'center', color: '#dc2626' }}>
-              Verbindung fehlgeschlagen. Bitte versuchen Sie es erneut.
-            </div>
-          )}
-          <button className="bg" onClick={onClose} style={{ justifyContent: 'center' }}>Abbrechen</button>
-        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}><span style={{ fontSize: 20, fontWeight: 700 }}>🔗 Bluetooth-Waage</span><button className="bic" style={{ width: 40, height: 40 }} onClick={onClose}><X size={18} /></button></div>
+        {st === 'idle' && <button className="bp" style={{ width: '100%', justifyContent: 'center' }} onClick={() => { setSt('scan'); setTimeout(() => setSt('conn'), 1500); }}><Bluetooth size={18} />Suchen</button>}
+        {st === 'scan' && <div style={{ textAlign: 'center' }}><Loader2 size={32} className="spin" style={{ marginBottom: 8 }} /><p>Suche Waage…</p></div>}
+        {st === 'conn' && <><div style={{ background: '#f0fdf4', borderRadius: 12, padding: 12, textAlign: 'center', marginBottom: 12 }}>✓ Demo-Waage verbunden</div><button className="bp" style={{ width: '100%', justifyContent: 'center' }} onClick={() => { setSt('read'); setTimeout(() => { onRead(+(Math.random() * 70 + 50).toFixed(1)); onClose(); }, 1000); }}><Scale size={16} />Gewicht abrufen</button></>}
+        {st === 'read' && <div style={{ textAlign: 'center' }}><Loader2 size={32} className="spin" style={{ marginBottom: 8 }} /><p>Lese Gewicht…</p></div>}
+        <button className="bg" onClick={onClose} style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}>Abbrechen</button>
       </div>
     </div>
   );
 }
-
-// ─── Smartwatch‑Import Modal ────────────────────────────────────────────
-function SmartwatchImportModal({ onClose, onImport }: { onClose: () => void; onImport: (activities: Omit<ActivityEntry, 'id'>[]) => void }) {
-  const [importType, setImportType] = useState<'manual' | 'csv'>('manual');
-  const [steps, setSteps] = useState('');
-  const [heartRate, setHeartRate] = useState('');
-  const [calories, setCalories] = useState('');
-  const [csvFile, setCsvFile] = useState<File | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const handleManualImport = () => {
-    const stepsNum = parseInt(steps);
-    const hr = parseInt(heartRate);
-    const cal = parseInt(calories);
-    if (isNaN(stepsNum) && isNaN(hr) && isNaN(cal)) {
-      alert('Bitte mindestens einen Wert eingeben (Schritte, Puls oder Kalorien).');
-      return;
-    }
-    const activity: Omit<ActivityEntry, 'id'> = {
-      date: td(),
-      sport: `Smartwatch‑Daten`,
-      durationMinutes: 0,
-      caloriesBurned: cal,
-      met: 0,
-    };
-    if (stepsNum > 0 && cal === 0) {
-      const estimatedCal = Math.round(stepsNum * 0.04);
-      activity.caloriesBurned = estimatedCal;
-      activity.sport = `${stepsNum} Schritte (≈ ${estimatedCal} kcal)`;
-    }
-    if (hr > 0) activity.sport += `, Puls ${hr}`;
-    onImport([activity]);
-    onClose();
-  };
-
-  const handleCsvUpload = () => {
-    if (!csvFile) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const lines = text.split('\n').slice(1);
-      const activities: Omit<ActivityEntry, 'id'>[] = [];
-      for (const line of lines) {
-        const parts = line.split(',');
-        if (parts.length >= 4) {
-          const date = parts[0].trim();
-          const sport = parts[1].trim();
-          const duration = parseInt(parts[2].trim());
-          const kcal = parseInt(parts[3].trim());
-          if (!isNaN(duration) && !isNaN(kcal) && date.length === 10) {
-            activities.push({ date, sport, durationMinutes: duration, caloriesBurned: kcal, met: 0 });
-          }
-        }
-      }
-      onImport(activities);
-      onClose();
-    };
-    reader.readAsText(csvFile);
-  };
-
+function EditCalModal({ entry, onClose, onSave }: { entry: FoodEntry; onClose: () => void; onSave: (id: string, cal: number) => void }) {
+  const [cals, setCals] = useState(String(entry.calories));
   return (
     <div className="moo" onClick={onClose}>
-      <div className="mosh" onClick={e => e.stopPropagation()}>
+      <div className="mosh" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
         <div className="mohdl" />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <span style={{ fontSize: 18, fontWeight: 700 }}>Aktivitäten importieren (Smartwatch)</span>
-          <button className="bic" style={{ width: 34, height: 34 }} onClick={onClose}><X size={15} /></button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}><span style={{ fontSize: 18, fontWeight: 700 }}>✏️ Kalorien bearbeiten</span><button className="bic" style={{ width: 40, height: 40 }} onClick={onClose}><X size={18} /></button></div>
+        <div style={{ background: '#f8fafc', borderRadius: 12, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#475569' }}>{entry.name}</div>
+        <div><label className="lbl">Kalorien (kcal)</label><input className="inp" type="number" value={cals} onChange={e => setCals(e.target.value)} min={1} autoFocus /></div>
+        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+          <button className="bg" onClick={onClose} style={{ flex: 1, justifyContent: 'center' }}>Abbrechen</button>
+          <button className="bp" onClick={() => { const v = parseInt(cals); if (v > 0) { onSave(entry.id, v); onClose(); } }} style={{ flex: 2, justifyContent: 'center', height: 48 }}><Save size={14} />Speichern</button>
         </div>
-        <div className="tbar" style={{ marginBottom: 16 }}>
-          <button className={`tbtn ${importType === 'manual' ? 'on' : ''}`} onClick={() => setImportType('manual')}>Manuell</button>
-          <button className={`tbtn ${importType === 'csv' ? 'on' : ''}`} onClick={() => setImportType('csv')}>CSV‑Import</button>
-        </div>
-
-        {importType === 'manual' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div><label className="lbl">Schritte (optional)</label><input className="inp" type="number" value={steps} onChange={e => setSteps(e.target.value)} placeholder="z.B. 8500" /></div>
-            <div><label className="lbl">Durchschnittlicher Puls (optional)</label><input className="inp" type="number" value={heartRate} onChange={e => setHeartRate(e.target.value)} placeholder="z.B. 120" /></div>
-            <div><label className="lbl">Verbrannte Kalorien (optional)</label><input className="inp" type="number" value={calories} onChange={e => setCalories(e.target.value)} placeholder="z.B. 350" /></div>
-            <button className="bp" onClick={handleManualImport} style={{ justifyContent: 'center' }}>Importieren</button>
-          </div>
-        )}
-
-        {importType === 'csv' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div onClick={() => fileRef.current?.click()} style={{ border: '2px dashed #cbd5e1', borderRadius: 14, padding: 24, textAlign: 'center', cursor: 'pointer', background: '#fafafa' }}>
-              {csvFile ? <><Check size={24} color="#16a34a" /><p>{csvFile.name}</p></> : <><Upload size={28} color="#94a3b8" style={{ margin: '0 auto 8px' }} /><p style={{ fontSize: 13, color: '#64748b' }}>CSV‑Datei auswählen (Datum,Aktivität,Dauer,kcal)</p></>}
-              <input ref={fileRef} type="file" accept=".csv" onChange={e => setCsvFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
-            </div>
-            <button className="bp" onClick={handleCsvUpload} disabled={!csvFile} style={{ justifyContent: 'center' }}>Importieren</button>
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
-// ─── Hauptkomponente ────────────────────────────────────────────────────
+// ==================== HAUPTKOMPONENTE ====================
 export default function CaloriePage() {
   const router = useRouter();
+  const [chartsReady, setChartsReady] = useState(false);
+  useEffect(() => { const r = requestAnimationFrame(() => requestAnimationFrame(() => setChartsReady(true))); return () => cancelAnimationFrame(r); }, []);
+
   const [profile, setProfile] = useState<UserProfile>({ age: 30, gender: 'male', weight: 75, height: 175, activityLevel: 'moderate' });
   const [result, setResult] = useState<CalorieResult | null>(null);
   const [saved, setSaved] = useState(false);
@@ -595,341 +718,323 @@ export default function CaloriePage() {
   const [showActHist, setShowActHist] = useState(false);
   const [showFoodHist, setShowFoodHist] = useState(false);
   const [showWChart, setShowWChart] = useState(false);
-  const [weightStartDate, setWeightStartDate] = useState<string>(() => {
-    const saved = ls.get(SK.ws);
-    return saved || fd(new Date(Date.now() - 90 * 86400000));
-  });
-  const [weightRangeMode, setWeightRangeMode] = useState<'custom' | 'last7'>('custom');
-  const [showScaleModal, setShowScaleModal] = useState(false);
-  const [showWatchModal, setShowWatchModal] = useState(false);
+  const [weightRangeMode, setWeightRangeMode] = useState<'last7' | 'custom'>('custom');
+  const [weightStart, setWeightStart] = useState<string>(() => safeLS.get(STORAGE_KEYS.weightStart) || fmtDate(new Date(Date.now() - 90 * 86400000)));
+  const [showBt, setShowBt] = useState(false);
+  const [editFood, setEditFood] = useState<FoodEntry | null>(null);
 
-  useEffect(() => { ls.set(SK.ws, weightStartDate); }, [weightStartDate]);
+  useEffect(() => { safeLS.set(STORAGE_KEYS.weightStart, weightStart); }, [weightStart]);
 
   const calcBMR = (p: UserProfile) => p.gender === 'male' ? 10 * p.weight + 6.25 * p.height - 5 * p.age + 5 : 10 * p.weight + 6.25 * p.height - 5 * p.age - 161;
-  const compute = useCallback((p: UserProfile) => {
-    const bmr = Math.round(calcBMR(p)), tdee = Math.round(bmr * ACT_MULT[p.activityLevel].value);
+  const computeResult = useCallback((p: UserProfile) => {
+    const bmr = Math.round(calcBMR(p));
+    const tdee = Math.round(bmr * ACTIVITY_MULTIPLIERS[p.activityLevel].value);
     setResult({ bmr, tdee, goalCalories: { lose: Math.round(tdee * 0.8), maintain: tdee, gain: Math.round(tdee * 1.15) } });
   }, []);
 
   useEffect(() => {
-    const sp = ls.get(SK.p); if (sp) { try { const p = JSON.parse(sp); setProfile(p); compute(p); setSaved(true); } catch {} } else compute(profile);
-    const sg = ls.get(SK.g); if (sg) setGoalMode(sg as any);
-    try { const sw = ls.get(SK.w); if (sw) setWeightEntries(JSON.parse(sw)); } catch {}
-    try { const sa = ls.get(SK.a); if (sa) setActivities(JSON.parse(sa)); } catch {}
-    try { const sf = ls.get(SK.f); if (sf) setFoodEntries(JSON.parse(sf)); } catch {}
+    const sp = safeLS.get(STORAGE_KEYS.profile);
+    if (sp) { try { const p = JSON.parse(sp); setProfile(p); computeResult(p); setSaved(true); } catch {} } else computeResult(profile);
+    const sg = safeLS.get(STORAGE_KEYS.goal); if (sg) setGoalMode(sg as any);
+    try { const sw = safeLS.get(STORAGE_KEYS.weight); if (sw) setWeightEntries(JSON.parse(sw)); } catch {}
+    try { const sa = safeLS.get(STORAGE_KEYS.activities); if (sa) setActivities(JSON.parse(sa)); } catch {}
+    try { const sf = safeLS.get(STORAGE_KEYS.food); if (sf) setFoodEntries(JSON.parse(sf)); } catch {}
   }, []);
 
-  useEffect(() => { ls.set(SK.w, JSON.stringify(weightEntries)); }, [weightEntries]);
-  useEffect(() => { ls.set(SK.a, JSON.stringify(activities)); }, [activities]);
-  useEffect(() => { ls.set(SK.f, JSON.stringify(foodEntries)); }, [foodEntries]);
-  useEffect(() => { ls.set(SK.g, goalMode); }, [goalMode]);
+  useEffect(() => { safeLS.set(STORAGE_KEYS.weight, JSON.stringify(weightEntries)); }, [weightEntries]);
+  useEffect(() => { safeLS.set(STORAGE_KEYS.activities, JSON.stringify(activities)); }, [activities]);
+  useEffect(() => { safeLS.set(STORAGE_KEYS.food, JSON.stringify(foodEntries)); }, [foodEntries]);
+  useEffect(() => { safeLS.set(STORAGE_KEYS.goal, goalMode); }, [goalMode]);
 
-  const upd = (f: keyof UserProfile, v: any) => { const u = { ...profile, [f]: v }; setProfile(u); compute(u); setSaved(false); };
-  const saveP = () => { ls.set(SK.p, JSON.stringify(profile)); setSaved(true); };
-  const resetP = () => { const d: UserProfile = { age: 30, gender: 'male', weight: 75, height: 175, activityLevel: 'moderate' }; setProfile(d); compute(d); ls.del(SK.p); setSaved(false); };
-  const saveW = (w: number, date: string) => { setWeightEntries(prev => [...prev.filter(e => e.date !== date), { id: Date.now().toString(), date, weight: w, source: 'manual' }].sort((a, b) => a.date.localeCompare(b.date))); upd('weight', w); };
-  const addAct = (a: Omit<ActivityEntry, 'id'>) => setActivities(p => [{ id: Date.now().toString(), ...a }, ...p]);
-  const delAct = (id: string) => setActivities(p => p.filter(a => a.id !== id));
-  const addFood = (e: Omit<FoodEntry, 'id'>) => setFoodEntries(p => [{ id: Date.now().toString(), ...e }, ...p]);
-  const delFood = (id: string) => setFoodEntries(p => p.filter(e => e.id !== id));
-  const handleScaleWeight = (w: number) => { saveW(w, td()); alert(`Gewicht ${w} kg von Waage übernommen.`); };
-  const handleWatchImport = (newActivities: Omit<ActivityEntry, 'id'>[]) => { newActivities.forEach(act => addAct(act)); alert(`${newActivities.length} Aktivität(en) importiert.`); };
+  const updProfile = (field: keyof UserProfile, value: any) => { const u = { ...profile, [field]: value }; setProfile(u); computeResult(u); setSaved(false); };
+  const saveWeight = (w: number, date: string) => {
+    setWeightEntries(prev => [...prev.filter(e => e.date !== date), { id: Date.now().toString(), date, weight: w, source: 'manual' }].sort((a, b) => a.date.localeCompare(b.date)));
+    updProfile('weight', w);
+  };
 
-  const today = td();
-  const tFood = foodEntries.filter(e => e.date === today);
-  const tActs = activities.filter(a => a.date === today);
-  const consumed = tFood.reduce((s, e) => s + e.calories, 0);
-  const burned = tActs.reduce((s, a) => s + a.caloriesBurned, 0);
+  const td = todayStr();
+  const todayFood = foodEntries.filter(e => e.date === td);
+  const todayActs = activities.filter(a => a.date === td);
+  const consumed = todayFood.reduce((s, e) => s + e.calories, 0);
+  const burned = todayActs.reduce((s, a) => s + a.caloriesBurned, 0);
   const target = result?.goalCalories[goalMode] ?? 2000;
   const remaining = Math.max(target - consumed + burned, 0);
   const pct = target > 0 ? (consumed / target) * 100 : 0;
-  const ringCol = pct > 100 ? '#ff3b30' : pct > 85 ? '#ff9500' : '#30d158';
+  const ringColor = pct > 100 ? '#ff3b30' : pct > 85 ? '#ff9500' : '#30d158';
 
   const bmi = getBMI(profile.weight, profile.height);
-  const bmiCategory = getBMICategory(bmi);
+  const bmiCat = getBMICategory(bmi);
   const ideal = idealWeight(profile.height);
   const bmiPct = Math.min(Math.max(((bmi - 15) / 30) * 100, 0), 100);
   const overBy = profile.weight > ideal.hi ? +(profile.weight - ideal.hi).toFixed(1) : 0;
   const underBy = profile.weight < ideal.lo ? +(ideal.lo - profile.weight).toFixed(1) : 0;
 
-  const weightDiff = getWeightDifference(weightEntries);
-  const trendIcon = weightDiff.diff > 0 ? '📈' : weightDiff.diff < 0 ? '📉' : '➖';
-  const trendText = weightDiff.diff > 0 ? 'zugenommen' : weightDiff.diff < 0 ? 'abgenommen' : 'stabil';
-  const trendColor = weightDiff.diff > 0 ? '#dc2626' : weightDiff.diff < 0 ? '#16a34a' : '#64748b';
+  const wdiff = getWeightDiff(weightEntries);
+  const trendCol = wdiff.diff < 0 ? '#16a34a' : wdiff.diff > 0 ? '#dc2626' : '#64748b';
 
-  const getWeightChartData = () => {
-    let start = weightStartDate;
-    if (weightRangeMode === 'last7') {
-      const sevenDaysAgo = fd(new Date(Date.now() - 7 * 86400000));
-      start = sevenDaysAgo;
-    }
-    return weightEntries
-      .filter(e => e.date >= start && e.date <= today)
-      .map(e => ({ date: e.date.slice(5), weight: e.weight }))
-      .sort((a, b) => a.date.localeCompare(b.date));
+  const filteredWeights = () => {
+    const start = weightRangeMode === 'last7' ? fmtDate(new Date(Date.now() - 7 * 86400000)) : weightStart;
+    return weightEntries.filter(e => e.date >= start && e.date <= td).map(e => ({ date: e.date.slice(5), weight: e.weight })).sort((a, b) => a.date.localeCompare(b.date));
   };
-  const weightChartData = getWeightChartData();
-  const fullWeightChart = weightEntries.map(e => ({ date: e.date.slice(5), weight: e.weight })).sort((a, b) => a.date.localeCompare(b.date));
-  const last7Data = Array.from({ length: 7 }, (_, i) => {
-    const dt = fd(new Date(Date.now() - (6 - i) * 86400000));
+
+  const last7 = Array.from({ length: 7 }, (_, i) => {
+    const dt = fmtDate(new Date(Date.now() - (6 - i) * 86400000));
     return { d: dt.slice(5), eat: foodEntries.filter(e => e.date === dt).reduce((s, e) => s + e.calories, 0), burn: activities.filter(a => a.date === dt).reduce((s, a) => s + a.caloriesBurned, 0) };
   });
-  const srcIco = (s: FoodEntry['source']) => s === 'voice' ? '🎤' : s === 'photo' ? '📸' : '⌨️';
+
+  const sortedW = [...weightEntries].sort((a, b) => a.date.localeCompare(b.date));
+  const successData = sortedW.map(e => ({ date: e.date.slice(5), weight: e.weight, delta: +(sortedW[0]?.weight - e.weight).toFixed(1) }));
+
+  // --- Prognose-Daten für Diagramm (Plan + Trend) ---
+  const planPrognose = buildPrognoseData(weightEntries, goalMode, result);
+  const trendPrognose = buildTrendPrognoseData(weightEntries, 8);
+  // Kombinierte Daten für das Liniendiagramm
+  const combinedPrognose = planPrognose.map(p => {
+    const trend = trendPrognose.find(t => t.date === p.date);
+    return { ...p, trendPrognose: trend?.trendPrognose ?? null };
+  });
+
+  const expToday = getExpectedToday(weightEntries, result, goalMode);
+  const trendWeeklyRate = getTrendWeeklyRate(weightEntries);
+  const projectedTrend8w = getProjectedWeightByTrend(weightEntries, 8);
+  const projectedPlan8w = getPlanProjectedWeight(weightEntries, result, goalMode, 8);
+
+  // Abweichungstabelle: letzte 4 Wochen (oder weniger) – Plan vs. Ist
+  const deviationData = (() => {
+    if (weightEntries.length === 0 || !result) return [];
+    const sorted = [...weightEntries].sort((a, b) => a.date.localeCompare(b.date));
+    const first = sorted[0];
+    const dailyDiff = result.goalCalories[goalMode] - result.tdee;
+    const weeks = [];
+    const today = new Date();
+    for (let i = 3; i >= 0; i--) {
+      const weekDate = new Date(today);
+      weekDate.setDate(today.getDate() - i * 7);
+      const weekStr = fmtDate(weekDate);
+      const actual = sorted.find(e => e.date === weekStr)?.weight ?? null;
+      const daysFromStart = (weekDate.getTime() - new Date(first.date).getTime()) / 86400000;
+      const plan = first.weight + (dailyDiff * daysFromStart) / 7700;
+      weeks.push({
+        week: weekStr.slice(5),
+        actual,
+        plan: plan > 0 ? +plan.toFixed(1) : null,
+        deviation: actual ? +(actual - plan).toFixed(1) : null
+      });
+    }
+    return weeks;
+  })();
 
   return (
     <>
-      <style>{GS}</style>
+      <style>{CSS}</style>
       <div className="cp">
         <div className="hdr">
           <div className="hdr-r">
-            <div className="hdr-logo">
-              <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', padding: 0 }}><ArrowLeft size={20} /></button>
-              FamilyHub
-            </div>
-            <div className="hdr-badge"><Flame size={13} />Kalorien & Fitness</div>
+            <div className="hdr-logo"><button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex' }}><ArrowLeft size={22} /></button> FamilyHub</div>
+            <div className="hdr-badge"><Flame size={14} />Kalorien & Fitness</div>
           </div>
         </div>
 
         <div className="main">
-          <div className="card-grid">
+          <div className="card-grid fade-in">
 
-            {/* Meine Daten (einklappbar) */}
-            <div className="sw">
+            {/* MEINE DATEN */}
+            <div className="sw card-full">
               <button className="stgl" onClick={() => setSettingsOpen(!settingsOpen)}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Settings size={14} color="#64748b" />
-                  <span>Meine Daten</span>
-                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: saved ? '#f0fdf4' : '#fffbeb', color: saved ? '#16a34a' : '#d97706', border: `1px solid ${saved ? '#bbf7d0' : '#fde68a'}` }}>
-                    {saved ? 'gespeichert' : 'nicht gespeichert'}
-                  </span>
-                </div>
-                {settingsOpen ? <ChevronUp size={14} color="#64748b" /> : <ChevronDown size={14} color="#64748b" />}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Settings size={14} /><span>Meine Daten</span><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: saved ? '#f0fdf4' : '#fffbeb', color: saved ? '#16a34a' : '#d97706' }}>{saved ? 'gespeichert' : 'neu'}</span></div>
+                {settingsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </button>
               {settingsOpen && (
                 <div className="sbody">
                   <div className="g2">
-                    <div><label className="lbl">Alter</label><input className="inp" type="number" value={profile.age} onChange={e => upd('age', parseInt(e.target.value) || 0)} min={15} max={100} /></div>
-                    <div><label className="lbl">Geschlecht</label><select className="sel" value={profile.gender} onChange={e => upd('gender', e.target.value)}><option value="male">Männlich</option><option value="female">Weiblich</option></select></div>
-                    <div><label className="lbl">Gewicht (kg)</label><input className="inp" type="number" step=".1" value={profile.weight} onChange={e => upd('weight', parseFloat(e.target.value) || 0)} /></div>
-                    <div><label className="lbl">Größe (cm)</label><input className="inp" type="number" value={profile.height} onChange={e => upd('height', parseInt(e.target.value) || 0)} /></div>
+                    <div><label className="lbl">Alter</label><input className="inp" type="number" value={profile.age} onChange={e => updProfile('age', parseInt(e.target.value) || 0)} /></div>
+                    <div><label className="lbl">Geschlecht</label><select className="sel" value={profile.gender} onChange={e => updProfile('gender', e.target.value)}><option value="male">Männlich</option><option value="female">Weiblich</option></select></div>
+                    <div><label className="lbl">Gewicht (kg)</label><input className="inp" type="number" step=".1" value={profile.weight} onChange={e => updProfile('weight', parseFloat(e.target.value) || 0)} /></div>
+                    <div><label className="lbl">Größe (cm)</label><input className="inp" type="number" value={profile.height} onChange={e => updProfile('height', parseInt(e.target.value) || 0)} /></div>
                   </div>
                   <div>
-                    <label className="lbl" style={{ marginBottom: 8 }}>Aktivitätslevel</label>
-                    {(Object.keys(ACT_MULT) as UserProfile['activityLevel'][]).map(lv => (
-                      <button key={lv} className={`aopt ${profile.activityLevel === lv ? 'on' : ''}`} style={{ marginBottom: 5 }} onClick={() => upd('activityLevel', lv)}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <div><span style={{ fontSize: 13, fontWeight: 500 }}>{ACT_MULT[lv].label}</span><span style={{ fontSize: 11, color: '#64748b', marginLeft: 6 }}>{ACT_MULT[lv].desc}</span></div>
-                          <span style={{ fontSize: 11, color: profile.activityLevel === lv ? '#2563eb' : '#94a3b8' }}>×{ACT_MULT[lv].value}</span>
-                        </div>
-                      </button>
-                    ))}
+                    <label className="lbl">Aktivitätslevel</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 6 }}>
+                      {(Object.keys(ACTIVITY_MULTIPLIERS) as UserProfile['activityLevel'][]).map(lv => (
+                        <button key={lv} className={`aopt ${profile.activityLevel === lv ? 'on' : ''}`} onClick={() => updProfile('activityLevel', lv)}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ fontWeight: 500 }}>{ACTIVITY_MULTIPLIERS[lv].label}</span><span>×{ACTIVITY_MULTIPLIERS[lv].value}</span></div>
+                          <div style={{ fontSize: 11, color: '#64748b' }}>{ACTIVITY_MULTIPLIERS[lv].desc}</div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  {result && <div style={{ background: '#f1f5f9', borderRadius: 12, padding: '10px 14px', fontSize: 12, color: '#64748b', display: 'flex', gap: 16 }}><span><b style={{ color: '#1e293b' }}>BMR</b> {result.bmr} kcal</span><span><b style={{ color: '#1e293b' }}>TDEE</b> {result.tdee} kcal</span></div>}
-                  <div style={{ display: 'flex', gap: 8 }}><button className="bp" onClick={saveP} disabled={saved} style={{ flex: 1, justifyContent: 'center', height: 40 }}><Save size={13} />{saved ? 'Gespeichert' : 'Speichern'}</button><button className="bg" onClick={resetP}><RotateCcw size={13} />Reset</button></div>
+                  {result && <div style={{ background: '#f1f5f9', borderRadius: 12, padding: '10px 14px', fontSize: 12, display: 'flex', gap: 16, flexWrap: 'wrap' }}><span><b>BMR</b> {result.bmr} kcal</span><span><b>TDEE</b> {result.tdee} kcal</span><span><b>Ziel ({goalMode === 'lose' ? 'Abnehmen' : goalMode === 'maintain' ? 'Halten' : 'Zunehmen'})</b> {result.goalCalories[goalMode]} kcal</span></div>}
+                  <div style={{ display: 'flex', gap: 8 }}><button className="bp" onClick={() => { safeLS.set(STORAGE_KEYS.profile, JSON.stringify(profile)); setSaved(true); }} disabled={saved} style={{ flex: 1, justifyContent: 'center' }}><Save size={13} />Speichern</button><button className="bg" onClick={() => { const d: UserProfile = { age: 30, gender: 'male', weight: 75, height: 175, activityLevel: 'moderate' }; setProfile(d); computeResult(d); safeLS.del(STORAGE_KEYS.profile); setSaved(false); }}><RotateCcw size={13} />Reset</button></div>
                 </div>
               )}
             </div>
 
-            {/* Ring + Tagesbilanz */}
+            {/* TAGESRING */}
             {result && (
               <div className="card-dk">
                 <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
                   {(['lose', 'maintain', 'gain'] as const).map(k => (
                     <button key={k} className="gc" onClick={() => setGoalMode(k)} style={{ borderColor: goalMode === k ? '#fff' : 'rgba(255,255,255,.3)', background: goalMode === k ? '#fff' : 'transparent', color: goalMode === k ? '#1e3a5f' : 'rgba(255,255,255,.85)' }}>
-                      {k === 'lose' ? 'Abnehmen' : k === 'maintain' ? 'Halten' : 'Zunehmen'}
+                      {k === 'lose' ? `Abnehmen · ${result.goalCalories.lose}` : k === 'maintain' ? `Halten · ${result.goalCalories.maintain}` : `Zunehmen · ${result.goalCalories.gain}`}
                     </button>
                   ))}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-                  <div className="rw"><Ring pct={pct} color={ringCol} /><div className="ri"><span style={{ fontSize: 21, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{consumed}</span><span style={{ fontSize: 10, color: 'rgba(255,255,255,.6)' }}>gegessen</span></div></div>
-                  <div style={{ flex: 1 }}><div style={{ fontSize: 36, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{remaining}</div><div style={{ fontSize: 13, color: 'rgba(255,255,255,.7)', marginTop: 4 }}>{remaining > 0 ? 'kcal noch frei' : '🎯 Ziel erreicht!'}</div><div style={{ fontSize: 11, color: 'rgba(255,255,255,.5)', marginTop: 2 }}>Ziel {target} · Verbrannt +{burned}</div><div style={{ marginTop: 10, background: 'rgba(255,255,255,.2)', borderRadius: 40, height: 5, overflow: 'hidden' }}><div style={{ height: 5, borderRadius: 40, background: ringCol, width: `${Math.min(pct, 100)}%`, transition: 'width .6s' }} /></div></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div className="rw"><Ring pct={pct} color={ringColor} /><div className="ri"><span style={{ fontSize: 18, fontWeight: 700 }}>{consumed}</span><span style={{ fontSize: 9 }}>gegessen</span></div></div>
+                  <div style={{ flex: 1 }}><div style={{ fontSize: 32, fontWeight: 700, lineHeight: 1 }}>{remaining}</div><div style={{ fontSize: 12, opacity: 0.8 }}>{remaining > 0 ? 'kcal noch frei' : '🎯 Tagesziel erreicht!'}</div><div style={{ fontSize: 10, opacity: 0.6 }}>Ziel {target} · +{burned} verbrannt</div><div style={{ marginTop: 8, background: 'rgba(255,255,255,.2)', borderRadius: 20, height: 4 }}><div style={{ height: 4, borderRadius: 20, background: ringColor, width: `${Math.min(pct, 100)}%`, transition: 'width 0.6s' }} /></div></div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 14 }}>
-                  {[{ val: consumed, lbl: 'Gegessen', col: '#ffd60a' }, { val: burned, lbl: 'Verbrannt', col: '#30d158' }, { val: result.goalCalories[goalMode], lbl: 'Tagesziel', col: 'rgba(255,255,255,.7)' }].map(({ val, lbl, col }) => (
-                    <div key={lbl} style={{ background: 'rgba(255,255,255,.1)', borderRadius: 12, padding: '10px 8px', textAlign: 'center' }}><div style={{ fontSize: 18, fontWeight: 700, color: col }}>{val}</div><div style={{ fontSize: 10, color: 'rgba(255,255,255,.6)', marginTop: 2 }}>{lbl}</div></div>
+                  {[{ val: consumed, lbl: 'Gegessen', col: '#ffd60a' }, { val: burned, lbl: 'Verbrannt', col: '#30d158' }, { val: target, lbl: 'Ziel', col: 'rgba(255,255,255,.7)' }].map(({ val, lbl, col }) => (
+                    <div key={lbl} style={{ background: 'rgba(255,255,255,.1)', borderRadius: 12, padding: '8px 6px', textAlign: 'center' }}><div style={{ fontSize: 18, fontWeight: 700, color: col }}>{val}</div><div style={{ fontSize: 9, opacity: 0.7 }}>{lbl}</div></div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Mahlzeiten heute */}
+            {/* MAHLZEITEN */}
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}><div className="slbl" style={{ margin: 0 }}><UtensilsCrossed size={12} />Mahlzeiten heute</div><button className="bp" onClick={() => setShowFood(true)}><Plus size={13} />Eintragen</button></div>
-              {tFood.length === 0 ? <div style={{ textAlign: 'center', padding: '18px 0', color: '#94a3b8' }}><Coffee size={24} style={{ margin: '0 auto 6px' }} /><div style={{ fontSize: 13 }}>Noch nichts gegessen?</div><div style={{ fontSize: 11, marginTop: 3 }}>Tippen · Sprechen · Fotografieren</div></div>
-                : tFood.map(e => (
-                  <div key={e.id} className="frow">
-                    {e.photoPreview ? <img src={e.photoPreview} alt="" className="fthumb" /> : <div className="fico">{srcIco(e.source)}</div>}
-                    <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 14, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div><div style={{ fontSize: 11, color: '#64748b' }}>{e.time}</div></div>
-                    <span style={{ fontSize: 15, fontWeight: 700, marginRight: 8 }}>{e.calories}</span>
-                    <button className="bdel" onClick={() => delFood(e.id)}><Trash2 size={14} /></button>
-                  </div>
-                ))}
-              {tFood.length > 0 && <div style={{ borderTop: '1px solid #f1f5f9', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span style={{ color: '#64748b' }}>{tFood.length} Mahlzeit{tFood.length > 1 ? 'en' : ''}</span><span style={{ fontWeight: 700 }}>{consumed} kcal</span></div>}
+              {todayFood.length === 0 ? <div style={{ textAlign: 'center', padding: '20px 0', color: '#94a3b8' }}><Coffee size={24} style={{ marginBottom: 6 }} /><div style={{ fontSize: 12 }}>Keine Mahlzeiten</div></div> : todayFood.map(e => (
+                <div key={e.id} className="frow">
+                  <div className="fico" style={{ fontSize: 22 }}>{getFoodEmoji(e.name)}</div>
+                  <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 500 }}>{e.name}</div><div style={{ fontSize: 10, color: '#64748b' }}>{e.time}</div></div>
+                  <span style={{ fontSize: 14, fontWeight: 700 }}>{e.calories}</span>
+                  <button className="bedit" onClick={() => setEditFood(e)}><Edit2 size={13} /></button>
+                  <button className="bdel" onClick={() => setFoodEntries(p => p.filter(x => x.id !== e.id))}><Trash2 size={13} /></button>
+                </div>
+              ))}
+              {todayFood.length > 0 && <div style={{ borderTop: '1px solid #f1f5f9', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span>{todayFood.length} Einträge</span><span style={{ fontWeight: 700 }}>{consumed} kcal</span></div>}
             </div>
 
-            {/* Aktivitäten heute */}
+            {/* AKTIVITÄTEN */}
             <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <div className="slbl" style={{ margin: 0 }}><Dumbbell size={12} />Aktivitäten heute</div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="bp" onClick={() => setShowActivity(true)}><Plus size={13} />Eintragen</button>
-                  <button className="bic" onClick={() => setShowWatchModal(true)} title="Von Smartwatch importieren"><Activity size={16} /></button>
-                </div>
-              </div>
-              {tActs.length === 0 ? <div style={{ textAlign: 'center', padding: '12px 0', color: '#94a3b8', fontSize: 13 }}>Noch keine Aktivität</div>
-                : tActs.map(a => (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}><div className="slbl" style={{ margin: 0 }}><Dumbbell size={12} />Aktivitäten heute</div><button className="bp" onClick={() => setShowActivity(true)}><Plus size={13} />Eintragen</button></div>
+              {todayActs.length === 0 ? <div style={{ textAlign: 'center', padding: '16px 0', color: '#94a3b8', fontSize: 12 }}>Noch keine Aktivität</div> : todayActs.map(a => {
+                const sportObj = SPORTS.find(s => s.name === a.sport);
+                const Icon = sportObj?.icon || Activity;
+                return (
                   <div key={a.id} className="frow">
-                    <div className="fico"><Timer size={15} /></div>
-                    <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 500 }}>{a.sport}</div><div style={{ fontSize: 11, color: '#64748b' }}>{a.durationMinutes} min</div></div>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: '#30d158', marginRight: 8 }}>−{a.caloriesBurned}</span>
-                    <button className="bdel" onClick={() => delAct(a.id)}><Trash2 size={14} /></button>
+                    <div className="fico"><Icon size={20} strokeWidth={1.5} /></div>
+                    <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 500 }}>{a.sport}</div><div style={{ fontSize: 10, color: '#64748b' }}>{a.durationMinutes} min</div></div>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#30d158' }}>−{a.caloriesBurned}</span>
+                    <button className="bdel" onClick={() => setActivities(p => p.filter(x => x.id !== a.id))}><Trash2 size={13} /></button>
                   </div>
-                ))}
-              <button className="bg" onClick={() => setShowActHist(!showActHist)} style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}>{showActHist ? <ChevronUp size={13} /> : <ChevronDown size={13} />}Verlauf</button>
-              {showActHist && activities.slice(0, 12).map(a => (
-                <div key={a.id} className="erow"><div style={{ display: 'flex', gap: 8, flex: 1 }}><span style={{ color: '#64748b', width: 70 }}>{a.date}</span><span style={{ flex: 1 }}>{a.sport}</span><span style={{ color: '#64748b' }}>{a.durationMinutes} min</span></div><span style={{ color: '#30d158', fontWeight: 600, marginRight: 8 }}>{a.caloriesBurned}</span><button className="bdel" onClick={() => delAct(a.id)}><Trash2 size={13} /></button></div>
-              ))}
+                );
+              })}
+              <button className="bg" onClick={() => setShowActHist(!showActHist)} style={{ width: '100%', justifyContent: 'center', marginTop: 10, height: 38 }}>{showActHist ? <ChevronUp size={12} /> : <ChevronDown size={12} />}Verlauf</button>
+              {showActHist && activities.slice(0, 10).map(a => <div key={a.id} className="erow"><span style={{ width: 70, color: '#64748b' }}>{a.date}</span><span style={{ flex: 1 }}>{a.sport}</span><span style={{ color: '#30d158' }}>{a.caloriesBurned}</span><button className="bdel" onClick={() => setActivities(p => p.filter(x => x.id !== a.id))}><Trash2 size={11} /></button></div>)}
             </div>
 
-            {/* 7-Tage-Verlauf + Gewichtstrend */}
+            {/* GEWICHT & KÖRPER */}
             <div className="card">
-              <div className="slbl"><TrendingUp size={12} />Verlauf & Gewichtstrend</div>
-              <div className="chart-container">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={last7Data} margin={{ top: 0, right: 0, left: -22, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="d" tick={{ fontSize: 10, fill: '#64748b' }} />
-                    <YAxis tick={{ fontSize: 10, fill: '#64748b' }} />
-                    <Tooltip contentStyle={{ borderRadius: 12, fontSize: 12, border: '1px solid #f1f5f9' }} />
-                    <Bar dataKey="eat" fill="#1e3a5f" name="Gegessen" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="burn" fill="#30d158" name="Verbrannt" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              {fullWeightChart.length > 1 && (
-                <>
-                  <div className="slbl" style={{ marginTop: 12 }}><Scale size={12} />Gewichtsentwicklung (Start → heute)</div>
-                  <div className="chart-container">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={fullWeightChart} margin={{ top: 0, right: 0, left: -22, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748b' }} />
-                        <YAxis domain={['auto', 'auto']} unit=" kg" tick={{ fontSize: 10, fill: '#64748b' }} />
-                        <Tooltip formatter={v => `${v} kg`} contentStyle={{ borderRadius: 12, fontSize: 12, border: '1px solid #f1f5f9' }} />
-                        <Line type="monotone" dataKey="weight" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} name="Gewicht" />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div style={{ background: '#f1f5f9', borderRadius: 12, padding: 12, marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <span style={{ fontSize: 13, color: '#64748b' }}>Von {weightDiff.startWeight} kg → {weightDiff.currentWeight} kg</span>
-                      <div style={{ fontSize: 18, fontWeight: 700, color: trendColor, marginTop: 4 }}>
-                        {trendIcon} {Math.abs(weightDiff.diff).toFixed(1)} kg {trendText}
-                      </div>
-                    </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{ fontSize: 12, color: '#64748b' }}>pro Woche</span>
-                      <div style={{ fontSize: 16, fontWeight: 600, color: trendColor }}>
-                        {Math.abs(weightDiff.weeklyRate).toFixed(1)} kg/Woche
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-              {fullWeightChart.length <= 1 && (
-                <p style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
-                  Mindestens zwei Gewichtseinträge für Trendanzeige nötig.
-                </p>
-              )}
-              <button className="bg" onClick={() => setShowFoodHist(!showFoodHist)} style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}>
-                {showFoodHist ? <ChevronUp size={13} /> : <ChevronDown size={13} />}Alle Mahlzeiten
-              </button>
-              {showFoodHist && foodEntries.slice(0, 20).map(e => (
-                <div key={e.id} className="erow"><span style={{ color: '#64748b', width: 62 }}>{e.date}</span><span style={{ width: 40, color: '#64748b' }}>{e.time}</span><span style={{ width: 22 }}>{srcIco(e.source)}</span><span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</span><span style={{ fontWeight: 600, marginRight: 8, color: '#f59e0b' }}>{e.calories}</span><button className="bdel" onClick={() => delFood(e.id)}><Trash2 size={13} /></button></div>
-              ))}
-            </div>
-
-            {/* Gewicht & Körper */}
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <div className="slbl" style={{ margin: 0 }}><Scale size={12} />Gewicht & Körper</div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="bp" onClick={() => setShowWeight(true)}><Plus size={13} />Eintragen</button>
-                  <button className="bic" onClick={() => setShowScaleModal(true)} title="Bluetooth‑Waage"><Bluetooth size={16} /></button>
-                </div>
-              </div>
-              <div style={{ textAlign: 'center', marginBottom: 14 }}><div style={{ fontSize: 52, fontWeight: 700, lineHeight: 1 }}>{profile.weight} <span style={{ fontSize: 20, fontWeight: 400 }}>kg</span></div><div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>BMI {bmi.toFixed(1)} · <span style={{ color: bmiCategory.color, fontWeight: 600 }}>{bmiCategory.label}</span></div></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}><div className="slbl" style={{ margin: 0 }}><Scale size={12} />Gewicht & Körper</div><div style={{ display: 'flex', gap: 6 }}><button className="bp" onClick={() => setShowWeight(true)}><Plus size={13} />Eintragen</button><button className="bic" onClick={() => setShowBt(true)}><Bluetooth size={14} /></button></div></div>
+              <div style={{ textAlign: 'center', marginBottom: 12 }}><div style={{ fontSize: 48, fontWeight: 700, lineHeight: 1 }}>{profile.weight}<span style={{ fontSize: 18 }}> kg</span></div><div style={{ fontSize: 12, color: '#64748b' }}>BMI {bmi.toFixed(1)} · <span style={{ color: bmiCat.color }}>{bmiCat.label}</span></div></div>
               <div className="bmibar"><div className="bmipip" style={{ left: `${bmiPct}%` }} /></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#94a3b8', marginTop: 4, marginBottom: 14 }}><span>Untergewicht</span><span>Normal</span><span>Übergewicht</span><span>Adipositas</span></div>
-              <div className="g2">
-                <div style={{ background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 14, padding: '12px 14px' }}><div style={{ fontSize: 11, color: '#0369a1', fontWeight: 600, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}><Heart size={11} />Idealgewicht</div><div style={{ fontSize: 20, fontWeight: 700, color: '#0c4a6e' }}>{ideal.lo}–{ideal.hi} kg</div><div style={{ fontSize: 11, color: '#0369a1', marginTop: 2 }}>BMI 18,5–24,9</div></div>
-                {overBy > 0 ? <div style={{ background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: 14, padding: '12px 14px' }}><div style={{ fontSize: 11, color: '#c2410c', fontWeight: 600, marginBottom: 4 }}>Bis Idealgewicht</div><div style={{ fontSize: 28, fontWeight: 700, color: '#9a3412' }}>{overBy} kg</div><div style={{ fontSize: 11, color: '#c2410c' }}>abzunehmen</div></div>
-                  : underBy > 0 ? <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 14, padding: '12px 14px' }}><div style={{ fontSize: 11, color: '#1d4ed8', fontWeight: 600, marginBottom: 4 }}>Bis Normalgewicht</div><div style={{ fontSize: 22, fontWeight: 700, color: '#1e40af' }}>{underBy} kg</div><div style={{ fontSize: 11, color: '#1d4ed8' }}>zuzunehmen</div></div>
-                  : <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 14, padding: '12px 14px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}><div style={{ fontSize: 24 }}>🎯</div><div style={{ fontSize: 13, fontWeight: 700, color: '#15803d', marginTop: 4 }}>Idealgewicht!</div></div>}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#94a3b8', margin: '4px 0 12px' }}><span>Unter</span><span>Normal</span><span>Über</span><span>Adipositas</span></div>
+              <div className="g2" style={{ gap: 8 }}>
+                <div style={{ background: '#f0f9ff', borderRadius: 12, padding: '8px 12px' }}><div style={{ fontSize: 10, fontWeight: 600, color: '#0369a1' }}>Idealgewicht</div><div style={{ fontSize: 18, fontWeight: 700 }}>{ideal.lo}–{ideal.hi} kg</div></div>
+                {overBy > 0 ? <div style={{ background: '#fff7ed', borderRadius: 12, padding: '8px 12px' }}><div style={{ fontSize: 10, fontWeight: 600, color: '#c2410c' }}>Bis Ideal</div><div style={{ fontSize: 22, fontWeight: 700 }}>{overBy} kg</div><div style={{ fontSize: 10 }}>abzunehmen</div></div> : underBy > 0 ? <div style={{ background: '#eff6ff', borderRadius: 12, padding: '8px 12px' }}><div style={{ fontSize: 10, fontWeight: 600, color: '#1d4ed8' }}>Bis Normal</div><div style={{ fontSize: 18, fontWeight: 700 }}>{underBy} kg</div><div style={{ fontSize: 10 }}>zuzunehmen</div></div> : <div style={{ background: '#f0fdf4', borderRadius: 12, padding: '8px 12px', textAlign: 'center' }}><div style={{ fontSize: 24 }}>🎯</div><div style={{ fontSize: 12, fontWeight: 700, color: '#15803d' }}>Idealgewicht!</div></div>}
               </div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 12, marginBottom: 8 }}><button className={weightRangeMode === 'last7' ? 'bp' : 'bg'} style={{ padding: '0 12px', height: 32, fontSize: 11 }} onClick={() => setWeightRangeMode('last7')}>7 Tage</button><button className={weightRangeMode === 'custom' ? 'bp' : 'bg'} style={{ padding: '0 12px', height: 32, fontSize: 11 }} onClick={() => setWeightRangeMode('custom')}>Zeitraum</button>{weightRangeMode === 'custom' && <input type="date" className="inp" value={weightStart} onChange={e => setWeightStart(e.target.value)} style={{ height: 32, fontSize: 11, flex: 1 }} />}</div>
+              {chartsReady && filteredWeights().length > 0 ? <div className="chart-w"><ResponsiveContainer width="100%" height="100%"><LineChart data={filteredWeights()} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}><CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" /><XAxis dataKey="date" tick={{ fontSize: 9, fill: '#64748b' }} /><YAxis domain={['auto', 'auto']} unit="kg" tick={{ fontSize: 9, fill: '#64748b' }} width={30} /><Tooltip formatter={(v: any) => `${v} kg`} contentStyle={{ borderRadius: 12, fontSize: 11 }} /><Line type="monotone" dataKey="weight" stroke="#1e3a5f" strokeWidth={2} dot={{ r: 2 }} /></LineChart></ResponsiveContainer></div> : chartsReady && <p style={{ textAlign: 'center', color: '#94a3b8', padding: 16 }}>Keine Daten im Zeitraum</p>}
+              <button className="bg" onClick={() => setShowWChart(!showWChart)} style={{ width: '100%', justifyContent: 'center', marginTop: 8, height: 36 }}>{showWChart ? <ChevronUp size={12} /> : <ChevronDown size={12} />}Alle Einträge</button>
+              {showWChart && weightEntries.slice().reverse().slice(0, 8).map(e => <div key={e.id} className="erow"><span>{e.date}</span><span style={{ fontWeight: 600 }}>{e.weight} kg</span><button className="bdel" onClick={() => setWeightEntries(p => p.filter(w => w.id !== e.id))}><Trash2 size={12} /></button></div>)}
+            </div>
 
-              {/* Zeitraum-Auswahl für Gewichtsverlauf */}
-              <div style={{ marginTop: 16, marginBottom: 12 }}>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button className={`bg ${weightRangeMode === 'last7' ? 'bp' : 'bg'}`} style={{ padding: '0 12px', height: 36 }} onClick={() => setWeightRangeMode('last7')}>Letzte 7 Tage</button>
-                  <button className={`bg ${weightRangeMode === 'custom' ? 'bp' : 'bg'}`} style={{ padding: '0 12px', height: 36 }} onClick={() => setWeightRangeMode('custom')}>Individuell</button>
-                  {weightRangeMode === 'custom' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-                      <CalendarIcon size={16} color="#64748b" />
-                      <input type="date" className="inp" value={weightStartDate} onChange={e => setWeightStartDate(e.target.value)} style={{ height: 36, flex: 1 }} />
-                    </div>
+            {/* NEUE MINI-DASHBOARDS: FORTSCHRITT & PROGNOSE + ABWEICHUNGSTABELLE */}
+            <div className="card card-full">
+              <div className="slbl"><Target size={12} /> Analyse & Prognose</div>
+              <div className="mini-dashboard">
+                {/* Fortschritt */}
+                <div className="mini-card">
+                  <h4><TrendingUp size={12} /> Bisheriger Fortschritt</h4>
+                  {sortedW.length >= 2 ? (
+                    <>
+                      <div className="mini-value">{Math.abs(wdiff.diff).toFixed(1)} <span className="mini-unit">kg</span></div>
+                      <div style={{ fontSize: 10, color: '#64748b' }}>{wdiff.diff <= 0 ? 'Abgenommen' : 'Zugenommen'} (Ø {Math.abs(wdiff.weeklyRate).toFixed(2)} kg/Woche)</div>
+                      <div className="mini-chart">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={successData.slice(-7)} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                            <Area type="monotone" dataKey="weight" stroke="#1e3a5f" strokeWidth={1.5} fill="#e2e8f0" dot={false} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 12, color: '#94a3b8', padding: '8px 0' }}>Gewicht eintragen</div>
+                  )}
+                </div>
+
+                {/* Prognose: Plan vs. Tatsächlicher Trend */}
+                <div className="mini-card">
+                  <h4><Activity size={12} /> 8‑Wochen‑Prognose</h4>
+                  {projectedTrend8w && projectedPlan8w ? (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                        <div><span style={{ fontSize: 10, color: '#64748b' }}>Plan</span><br /><span className="mini-value">{projectedPlan8w.toFixed(1)} kg</span></div>
+                        <div><span style={{ fontSize: 10, color: '#64748b' }}>Trend</span><br /><span className="mini-value">{projectedTrend8w.toFixed(1)} kg</span></div>
+                        <div><span style={{ fontSize: 10, color: '#64748b' }}>Differenz</span><br /><span className={`mini-value ${(projectedTrend8w - projectedPlan8w) > 0 ? 'negativ' : 'positiv'}`}>{(projectedTrend8w - projectedPlan8w).toFixed(1)} kg</span></div>
+                      </div>
+                      <div className="mini-chart">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={combinedPrognose} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                            <Line type="monotone" dataKey="planPrognose" stroke="#2563eb" strokeWidth={1.5} strokeDasharray="3 3" dot={false} name="Plan" />
+                            <Line type="monotone" dataKey="trendPrognose" stroke="#16a34a" strokeWidth={1.5} dot={false} name="Trend" />
+                            <Line type="monotone" dataKey="actual" stroke="#1e3a5f" strokeWidth={1.5} dot={{ r: 1.5 }} name="Ist" />
+                            <Tooltip contentStyle={{ fontSize: 10 }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 12, color: '#94a3b8', padding: '8px 0' }}>Genügend Gewichtsdaten für Trend benötigt</div>
                   )}
                 </div>
               </div>
 
-              {weightChartData.length > 0 ? (
-                <div className="chart-container">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={weightChartData} margin={{ top: 0, right: 0, left: -22, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                      <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#64748b' }} />
-                      <YAxis domain={['auto', 'auto']} unit=" kg" tick={{ fontSize: 10, fill: '#64748b' }} />
-                      <Tooltip formatter={v => `${v} kg`} contentStyle={{ borderRadius: 12, fontSize: 12, border: '1px solid #f1f5f9' }} />
-                      <Line type="monotone" dataKey="weight" stroke="#1e3a5f" strokeWidth={2} dot={{ r: 3 }} name="Gewicht" />
-                    </LineChart>
-                  </ResponsiveContainer>
+              {/* Abweichungstabelle */}
+              {deviationData.length > 0 && deviationData.some(d => d.actual !== null) && (
+                <div style={{ marginTop: 16 }}>
+                  <h4 style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}><Info size={12} /> Abweichung vom Plan (Soll/Ist)</h4>
+                  <table className="abweichung-table">
+                    <thead>
+                      <tr><th>Woche</th><th>Soll (kg)</th><th>Ist (kg)</th><th>Abweichung</th></tr>
+                    </thead>
+                    <tbody>
+                      {deviationData.map((d, idx) => (
+                        <tr key={idx}>
+                          <td>{d.week}</td>
+                          <td>{d.plan ?? '–'}</td>
+                          <td>{d.actual ?? '–'}</td>
+                          <td className={d.deviation !== null ? (d.deviation > 0 ? 'negativ' : 'positiv') : ''}>
+                            {d.deviation !== null ? (d.deviation > 0 ? `+${d.deviation}` : d.deviation) : '–'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div style={{ fontSize: 10, color: '#64748b', marginTop: 6 }}>Positive Abweichung = mehr Gewicht als geplant (weniger abgenommen/mehr zugenommen).</div>
                 </div>
-              ) : (
-                <p style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: '12px 0' }}>Keine Gewichtsdaten im ausgewählten Zeitraum.</p>
               )}
-              <button className="bg" onClick={() => setShowWChart(!showWChart)} style={{ width: '100%', justifyContent: 'center', marginTop: 12 }}>
-                {showWChart ? <ChevronUp size={13} /> : <ChevronDown size={13} />}Alle Gewichtseinträge
-              </button>
-              {showWChart && weightEntries.slice().reverse().slice(0, 8).map(e => (
-                <div key={e.id} className="erow"><div style={{ display: 'flex', gap: 10 }}><span style={{ color: '#64748b' }}>{e.date}</span><span style={{ fontWeight: 600 }}>{e.weight} kg</span></div><button className="bdel" onClick={() => setWeightEntries(p => p.filter(w => w.id !== e.id))}><Trash2 size={13} /></button></div>
-              ))}
             </div>
 
-            {/* Kalorienziele */}
-            {result && (
-              <div className="card">
-                <div className="slbl"><Calculator size={12} />Kalorienziele</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {(['lose', 'maintain', 'gain'] as const).map(k => (
-                    <button key={k} onClick={() => setGoalMode(k)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '11px 14px', borderRadius: 12, border: `1.5px solid ${goalMode === k ? '#2563eb' : '#e2e8f0'}`, background: goalMode === k ? '#eff6ff' : '#fafafa', cursor: 'pointer', fontFamily: 'inherit' }}>
-                      <div style={{ textAlign: 'left' }}><div style={{ fontSize: 14, fontWeight: 500 }}>{k === 'lose' ? 'Abnehmen' : k === 'maintain' ? 'Halten' : 'Zunehmen'}</div><div style={{ fontSize: 11, color: '#64748b' }}>{k === 'lose' ? '~0,5 kg/Woche' : k === 'maintain' ? 'Erhaltung' : '~0,5 kg/Woche'}</div></div>
-                      <div style={{ fontSize: 20, fontWeight: 700, color: k === 'lose' ? '#1e3a5f' : k === 'maintain' ? '#1c1c1e' : '#16a34a' }}>{result.goalCalories[k]}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* 7 TAGE KALORIEN */}
+            <div className="card card-full">
+              <div className="slbl"><Activity size={12} /> Kalorien der letzten 7 Tage</div>
+              {chartsReady && last7.some(d => d.eat > 0 || d.burn > 0) ? <div className="chart-w" style={{ height: 160 }}><ResponsiveContainer><BarChart data={last7} margin={{ top: 4, right: 4, left: -12, bottom: 0 }} barCategoryGap="20%"><CartesianGrid stroke="#f1f5f9" /><XAxis dataKey="d" tick={{ fontSize: 9 }} /><YAxis tick={{ fontSize: 9 }} width={35} /><Tooltip formatter={(v: number) => `${v} kcal`} />{result && <ReferenceLine y={target} stroke="#f59e0b" strokeDasharray="4 3" strokeWidth={1.5} label={{ value: `Ziel ${target}`, position: 'right', fontSize: 9, fill: '#f59e0b' }} />}<Bar dataKey="eat" fill="#1e3a5f" name="Gegessen" radius={[4, 4, 0, 0]} /><Bar dataKey="burn" fill="#30d158" name="Verbrannt" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div> : chartsReady && <p style={{ textAlign: 'center', padding: 20 }}>Noch keine Daten für die letzte Woche</p>}
+              <button className="bg" onClick={() => setShowFoodHist(!showFoodHist)} style={{ width: '100%', justifyContent: 'center', marginTop: 12, height: 40 }}>{showFoodHist ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Alle Mahlzeiten</button>
+              {showFoodHist && foodEntries.slice(0, 20).map(e => <div key={e.id} className="erow"><span style={{ width: 58 }}>{e.date}</span><span style={{ width: 36 }}>{e.time}</span><span style={{ width: 24 }}>{getFoodEmoji(e.name)}</span><span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name}</span><span style={{ fontWeight: 600 }}>{e.calories}</span><button className="bedit" onClick={() => setEditFood(e)}><Edit2 size={11} /></button><button className="bdel" onClick={() => setFoodEntries(p => p.filter(x => x.id !== e.id))}><Trash2 size={11} /></button></div>)}
+            </div>
 
           </div>
         </div>
       </div>
 
-      {showFood && <FoodModal onClose={() => setShowFood(false)} onSave={addFood} />}
-      {showActivity && <ActivityMo weight={profile.weight} onClose={() => setShowActivity(false)} onSave={addAct} />}
-      {showWeight && <WeightMo onClose={() => setShowWeight(false)} onSave={saveW} cur={profile.weight} />}
-      {showScaleModal && <BluetoothScaleModal onClose={() => setShowScaleModal(false)} onWeightRead={handleScaleWeight} />}
-      {showWatchModal && <SmartwatchImportModal onClose={() => setShowWatchModal(false)} onImport={handleWatchImport} />}
+      {showFood && <FoodModal onClose={() => setShowFood(false)} onSave={e => setFoodEntries(p => [{ id: Date.now().toString(), ...e }, ...p])} />}
+      {showActivity && <ActivityModal weight={profile.weight} onClose={() => setShowActivity(false)} onSave={a => setActivities(p => [{ id: Date.now().toString(), ...a }, ...p])} />}
+      {showWeight && <WeightModal onClose={() => setShowWeight(false)} onSave={saveWeight} currentWeight={profile.weight} />}
+      {showBt && <BtModal onClose={() => setShowBt(false)} onRead={w => saveWeight(w, todayStr())} />}
+      {editFood && <EditCalModal entry={editFood} onClose={() => setEditFood(null)} onSave={(id, cal) => setFoodEntries(p => p.map(e => e.id === id ? { ...e, calories: cal } : e))} />}
     </>
   );
 }
