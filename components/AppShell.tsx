@@ -6,8 +6,7 @@ import { useRouter, usePathname } from 'next/navigation'
 const NAV_ITEMS = [
   { id: 'dashboard', label: 'Start',     emoji: '🏠', path: '/dashboard'   },
   { id: 'kalender',  label: 'Kalender', emoji: '📅', path: '/kalender'     },
-  { id: 'kalorien',  label: 'Kalorien', emoji: '🔥', path: '/kalorien'        },
-  { id: 'einkauf',   label: 'Einkauf',  emoji: '🛒', path: '/einkaufsliste'},
+  { id: 'kalorien',  label: 'Kalorien', emoji: '🔥', path: '/kalorien'     },
   { id: 'rezepte',   label: 'Rezepte',  emoji: '🍳', path: '/rezepte'      },
   { id: 'wetter',    label: 'Wetter',   emoji: '🌤', path: '/wetter'        },
   { id: 'aufgaben',  label: 'Aufgaben', emoji: '✅', path: '/aufgaben'     },

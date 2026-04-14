@@ -7,13 +7,80 @@ import {
   TrendingUp, Dumbbell, Timer, Coffee, Camera, Upload, Check,
   UtensilsCrossed, ChevronDown, ChevronUp, X, Loader2, Settings,
   Sparkles, Heart, Activity, CalendarIcon, Edit2, Target, Info,
-  Footprints, Bike, Droplets, Zap, Sun, Moon, Apple, Salad, Egg, Fish, Beef, Wheat, Milk, Wine, BatteryCharging,
+  Footprints, Bike, Droplets, Zap, Sun, Moon, Apple, Salad, Egg, Fish, Beef, Wheat, Milk, BatteryCharging,
   Music
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, ReferenceLine, Area, AreaChart
 } from 'recharts';
+
+// ========== HILFSKOMPONENTE FÜR CHARTS OHNE WARNUNG ==========
+function ResponsiveLineChart({ data, height = 130, ...props }: any) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(entries => {
+      setWidth(entries[0].contentRect.width);
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div ref={containerRef} style={{ width: '100%', height }}>
+      {width > 0 && (
+        <LineChart width={width} height={height} data={data} {...props}>
+          {props.children}
+        </LineChart>
+      )}
+    </div>
+  );
+}
+
+function ResponsiveBarChart({ data, height = 140, ...props }: any) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(entries => {
+      setWidth(entries[0].contentRect.width);
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div ref={containerRef} style={{ width: '100%', height }}>
+      {width > 0 && (
+        <BarChart width={width} height={height} data={data} {...props}>
+          {props.children}
+        </BarChart>
+      )}
+    </div>
+  );
+}
+
+function ResponsiveAreaChart({ data, height = 55, ...props }: any) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver(entries => {
+      setWidth(entries[0].contentRect.width);
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
+  return (
+    <div ref={containerRef} style={{ width: '100%', height }}>
+      {width > 0 && (
+        <AreaChart width={width} height={height} data={data} {...props}>
+          {props.children}
+        </AreaChart>
+      )}
+    </div>
+  );
+}
 
 // ==================== TYPEN ====================
 interface UserProfile {
@@ -85,23 +152,19 @@ function getWeightDiff(entries: WeightEntry[]) {
   return { diff, weeklyRate: days > 0 ? diff / (days / 7) : 0, startWeight: s[0].weight, currentWeight: s[s.length - 1].weight };
 }
 
-// --- NEUE FUNKTIONEN FÜR TREND & REGRESSION ---
+// ==================== TREND & REGRESSION ====================
 function linearRegression(entries: WeightEntry[]): { slope: number; intercept: number; r2: number } | null {
   if (entries.length < 2) return null;
   const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
   const firstDate = new Date(sorted[0].date).getTime();
   const points = sorted.map(e => ({
-    x: (new Date(e.date).getTime() - firstDate) / (1000 * 3600 * 24), // Tage seit erstem Eintrag
+    x: (new Date(e.date).getTime() - firstDate) / (1000 * 3600 * 24),
     y: e.weight
   }));
   const n = points.length;
   let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
   for (const p of points) {
-    sumX += p.x;
-    sumY += p.y;
-    sumXY += p.x * p.y;
-    sumX2 += p.x * p.x;
-    sumY2 += p.y * p.y;
+    sumX += p.x; sumY += p.y; sumXY += p.x * p.y; sumX2 += p.x * p.x; sumY2 += p.y * p.y;
   }
   const denominator = n * sumX2 - sumX * sumX;
   if (denominator === 0) return null;
@@ -109,14 +172,8 @@ function linearRegression(entries: WeightEntry[]): { slope: number; intercept: n
   const intercept = (sumY - slope * sumX) / n;
   const ssRes = points.reduce((sum, p) => sum + (p.y - (slope * p.x + intercept)) ** 2, 0);
   const ssTot = sumY2 - (sumY * sumY) / n;
-  const r2 = 1 - ssRes / ssTot;
+  const r2 = ssTot === 0 ? 1 : 1 - ssRes / ssTot;
   return { slope, intercept, r2 };
-}
-
-function getTrendWeeklyRate(entries: WeightEntry[]): number | null {
-  const reg = linearRegression(entries);
-  if (!reg) return null;
-  return reg.slope * 7; // kg pro Woche
 }
 
 function getProjectedWeightByTrend(entries: WeightEntry[], weeks: number): number | null {
@@ -139,7 +196,7 @@ function getPlanProjectedWeight(entries: WeightEntry[], result: CalorieResult | 
   return last.weight + weeklyKgChange * weeks;
 }
 
-// ==================== LEBENSMITTEL-DATENBANK + EMOJI ====================
+// ==================== LEBENSMITTEL-DATENBANK ====================
 const foodDB: Record<string, number> = {
   buchweizen: 343, buchweizenmehl: 335, haferflocken: 371, hafer: 389,
   granola: 450, cornflakes: 378, dinkel: 338, dinkelmehl: 348,
@@ -305,25 +362,51 @@ function parseFoodLine(input: string): { total: number; items: ParsedItem[] } | 
   return { total, items: results };
 }
 
-// ==================== PROGNOSE (erweitert) ====================
-function buildPrognoseData(entries: WeightEntry[], goalMode: 'lose' | 'maintain' | 'gain', result: CalorieResult | null) {
+// ==================== PROGNOSE ====================
+interface PrognosePoint {
+  date: string;
+  label: string;
+  actual: number | null;
+  planPrognose: number | null;
+  trendPrognose: number | null;
+}
+
+function buildPrognoseData(
+  entries: WeightEntry[],
+  goalMode: 'lose' | 'maintain' | 'gain',
+  result: CalorieResult | null
+): PrognosePoint[] {
   if (!result || entries.length < 1) return [];
   const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
   const last = sorted[sorted.length - 1];
   const dailyDiff = result.goalCalories[goalMode] - result.tdee;
   const weeklyKgChange = (dailyDiff * 7) / 7700;
 
-  const historical = sorted.map(e => ({ date: e.date, label: e.date.slice(5), actual: e.weight, planPrognose: null as number | null, trendPrognose: null as number | null }));
-  const future: typeof historical = [];
+  const historical: PrognosePoint[] = sorted.map(e => ({
+    date: e.date,
+    label: e.date.slice(5),
+    actual: e.weight,
+    planPrognose: null,
+    trendPrognose: null,
+  }));
+
+  const future: PrognosePoint[] = [];
   const lastDate = new Date(last.date);
   for (let w = 1; w <= 8; w++) {
-    const d = new Date(lastDate); d.setDate(d.getDate() + w * 7);
-    future.push({ date: fmtDate(d), label: fmtDate(d).slice(5), actual: null, planPrognose: +(last.weight + weeklyKgChange * w).toFixed(2), trendPrognose: null });
+    const d = new Date(lastDate);
+    d.setDate(d.getDate() + w * 7);
+    future.push({
+      date: fmtDate(d),
+      label: fmtDate(d).slice(5),
+      actual: null,
+      planPrognose: +(last.weight + weeklyKgChange * w).toFixed(2),
+      trendPrognose: null,
+    });
   }
   return [...historical, ...future].sort((a, b) => a.date.localeCompare(b.date));
 }
 
-function buildTrendPrognoseData(entries: WeightEntry[], weeks: number = 8) {
+function buildTrendPrognoseData(entries: WeightEntry[], weeks = 8): PrognosePoint[] {
   if (entries.length < 2) return [];
   const reg = linearRegression(entries);
   if (!reg) return [];
@@ -331,7 +414,7 @@ function buildTrendPrognoseData(entries: WeightEntry[], weeks: number = 8) {
   const firstDate = new Date(sorted[0].date).getTime();
   const lastDate = new Date(sorted[sorted.length - 1].date);
   const startDay = (lastDate.getTime() - firstDate) / (1000 * 3600 * 24);
-  const result = [];
+  const result: PrognosePoint[] = [];
   for (let w = 0; w <= weeks; w++) {
     const futureDate = new Date(lastDate);
     futureDate.setDate(futureDate.getDate() + w * 7);
@@ -340,111 +423,13 @@ function buildTrendPrognoseData(entries: WeightEntry[], weeks: number = 8) {
     result.push({
       date: fmtDate(futureDate),
       label: fmtDate(futureDate).slice(5),
-      trendPrognose: +weight.toFixed(2)
+      actual: null,
+      planPrognose: null,
+      trendPrognose: +weight.toFixed(2),
     });
   }
   return result;
 }
-
-function getExpectedToday(entries: WeightEntry[], result: CalorieResult | null, goalMode: 'lose' | 'maintain' | 'gain') {
-  if (!result || entries.length < 1) return null;
-  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
-  const first = sorted[0];
-  const daysPassed = Math.floor((new Date().getTime() - new Date(first.date).getTime()) / 86400000);
-  if (daysPassed <= 0) return null;
-  const dailyDiff = result.goalCalories[goalMode] - result.tdee;
-  const expected = +(first.weight + (dailyDiff * daysPassed) / 7700).toFixed(1);
-  const current = sorted[sorted.length - 1].weight;
-  return { expected, diff: +(current - expected).toFixed(1), current };
-}
-
-// ==================== CSS ====================
-const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #f5f7fb; font-family: 'Inter', sans-serif; }
-  .cp { min-height: 100vh; background: #f5f7fb; padding-bottom: 80px; }
-  .hdr { background: linear-gradient(135deg, #1e3a5f 0%, #0f2b44 100%); padding: 20px 20px; border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-  .hdr-r { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
-  .hdr-logo { font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 12px; }
-  .hdr-badge { background: rgba(255,255,255,.15); backdrop-filter: blur(4px); border-radius: 20px; padding: 6px 14px; color: #fff; font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
-  .main { max-width: 1400px; margin: 0 auto; padding: 20px 16px; }
-  .card-grid { display: grid; grid-template-columns: 1fr; gap: 20px; align-items: start; }
-  @media(min-width: 640px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media(min-width: 1024px) { .card-grid { grid-template-columns: repeat(3, 1fr); } }
-  .card { background: #fff; border-radius: 16px; padding: 18px; box-shadow: 0 8px 20px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02); transition: transform 0.2s, box-shadow 0.2s; border: 1px solid rgba(0,0,0,0.03); }
-  .card:hover { transform: translateY(-2px); box-shadow: 0 16px 28px -8px rgba(0,0,0,0.08); }
-  .card-dk { background: linear-gradient(145deg, #1e3a5f, #132f4a); border-radius: 16px; padding: 18px; color: #fff; box-shadow: 0 12px 24px -8px rgba(0,0,0,0.2); }
-  .card-full { grid-column: 1/-1; }
-  @media(max-width: 639px) { .card-full { grid-column: 1; } }
-  .slbl { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
-  .inp { width: 100%; height: 44px; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0 14px; font-size: 14px; font-family: inherit; background: #fafcff; transition: all 0.2s; }
-  .inp:focus { border-color: #2563eb; background: #fff; outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
-  .sel { width: 100%; height: 44px; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0 12px; font-size: 14px; background: #fafcff; }
-  .bp { background: #2563eb; border: none; border-radius: 12px; padding: 0 18px; height: 44px; color: #fff; font-weight: 600; font-size: 13px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-  .bp:hover { background: #1d4ed8; transform: scale(0.98); }
-  .bg { background: #f1f5f9; border: none; border-radius: 12px; padding: 0 16px; height: 40px; color: #1e293b; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s; }
-  .bg:hover { background: #e2e8f0; }
-  .bic { background: #f1f5f9; border: none; border-radius: 12px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: #1e293b; }
-  .bic:hover { background: #e2e8f0; transform: scale(0.96); }
-  .bic.rec { background: #ff3b30; color: #fff; animation: pulse 1.2s infinite; }
-  .bdel { background: none; border: none; cursor: pointer; color: #94a3b8; padding: 6px; border-radius: 8px; transition: all 0.2s; }
-  .bdel:hover { color: #ff3b30; background: #fee2e2; }
-  .bedit { background: none; border: none; cursor: pointer; color: #94a3b8; padding: 6px; border-radius: 8px; transition: all 0.2s; }
-  .bedit:hover { color: #2563eb; background: #e0f2fe; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
-  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  .spin { animation: spin 1s linear infinite; }
-  @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-  .fade-in { animation: fadeInUp 0.3s ease-out; }
-  .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .frow { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid #f1f5f9; transition: background 0.1s; }
-  .frow:hover { background: #f8fafc; border-radius: 12px; padding-left: 6px; }
-  .fico { width: 40px; height: 40px; background: #f1f5f9; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
-  .erow { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
-  .sw { background: #fff; border-radius: 16px; overflow: hidden; }
-  .stgl { width: 100%; background: #fff; border: none; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; color: #0f172a; }
-  .stgl:hover { background: #f8fafc; }
-  .sbody { padding: 0 18px 18px 18px; background: #fff; display: flex; flex-direction: column; gap: 14px; }
-  .lbl { font-size: 12px; font-weight: 500; color: #475569; display: block; margin-bottom: 6px; }
-  .aibox { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 12px 14px; margin-top: 8px; }
-  .aidetail { font-size: 11px; color: #166534; margin-top: 8px; line-height: 1.6; background: #e7fdf0; border-radius: 12px; padding: 8px 12px; }
-  .bmibar { position: relative; height: 8px; border-radius: 20px; overflow: hidden; background: linear-gradient(to right, #3b82f6 0%, #3b82f6 20%, #16a34a 20%, #16a34a 60%, #f59e0b 60%, #f59e0b 85%, #ef4444 85%, #ef4444 100%); }
-  .bmipip { position: absolute; top: -3px; width: 16px; height: 16px; background: #1e3a5f; border: 3px solid #fff; border-radius: 50%; transform: translateX(-50%); transition: left 0.5s cubic-bezier(0.2,0.9,0.4,1.1); box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
-  .rw { position: relative; flex-shrink: 0; }
-  .ri { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .gc { padding: 6px 14px; border-radius: 20px; border: 1.5px solid; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-  .tbar { display: flex; background: #f1f5f9; border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 18px; }
-  .tbtn { flex: 1; border: none; border-radius: 8px; padding: 10px; font-size: 12px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s; background: transparent; color: #64748b; }
-  .tbtn.on { background: #fff; color: #0f172a; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-  .moo { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); display: flex; align-items: flex-end; justify-content: center; z-index: 1000; }
-  .mosh { background: #fff; border-radius: 20px 20px 0 0; padding: 24px 20px 32px; width: 100%; max-width: 680px; max-height: 88vh; overflow-y: auto; }
-  @media(min-width: 600px) { .moo { align-items: center; } .mosh { border-radius: 20px; max-height: 80vh; } }
-  .mohdl { width: 44px; height: 5px; background: #d1d5db; border-radius: 20px; margin: 0 auto 20px; }
-  .aopt { width: 100%; padding: 10px 14px; border-radius: 12px; border: 1.5px solid #e2e8f0; text-align: left; background: #fff; cursor: pointer; transition: all 0.2s; margin-bottom: 6px; }
-  .aopt.on { border-color: #2563eb; background: #eff6ff; }
-  .chart-w { width: 100%; height: 150px; }
-  .chart-wl { width: 100%; height: 180px; }
-  .erfolg-stat { display: flex; flex-direction: column; align-items: center; background: #f8fafc; border-radius: 12px; padding: 10px 12px; flex: 1; min-width: 80px; }
-  .hinweis { background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #92400e; display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
-  .voice-warn { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #9a3412; margin-bottom: 12px; }
-  .sport-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; max-height: 280px; overflow-y: auto; padding: 4px; }
-  .sport-card { display: flex; flex-direction: column; align-items: center; gap: 8px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px 8px; cursor: pointer; transition: all 0.2s; }
-  .sport-card.selected { border-color: #2563eb; background: #eff6ff; transform: scale(0.98); }
-  .sport-card:hover { background: #f1f5f9; transform: translateY(-2px); }
-  .sport-icon { width: 44px; height: 44px; background: #fff; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
-  .mini-dashboard { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
-  .mini-card { flex: 1; min-width: 200px; background: #f8fafc; border-radius: 12px; padding: 12px; border: 1px solid #e2e8f0; }
-  .mini-card h4 { font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px; display: flex; align-items: center; gap: 4px; }
-  .mini-value { font-size: 20px; font-weight: 700; color: #1e3a5f; }
-  .mini-unit { font-size: 10px; font-weight: 400; color: #64748b; }
-  .mini-chart { height: 60px; width: 100%; margin-top: 8px; }
-  .abweichung-table { font-size: 11px; width: 100%; border-collapse: collapse; margin-top: 12px; }
-  .abweichung-table th, .abweichung-table td { padding: 6px 4px; text-align: left; border-bottom: 1px solid #e2e8f0; }
-  .abweichung-table th { color: #64748b; font-weight: 600; }
-  .positiv { color: #16a34a; }
-  .negativ { color: #dc2626; }
-`;
 
 // ==================== RING ====================
 function Ring({ pct, size = 90, sw = 10, color = '#30d158' }: { pct: number; size?: number; sw?: number; color?: string }) {
@@ -459,7 +444,7 @@ function Ring({ pct, size = 90, sw = 10, color = '#30d158' }: { pct: number; siz
   );
 }
 
-// ==================== FOOD MODAL ====================
+// ==================== MODALS (unverändert, aber Platz sparend) ====================
 function FoodModal({ onClose, onSave }: { onClose: () => void; onSave: (e: Omit<FoodEntry, 'id'>) => void }) {
   const [tab, setTab] = useState<'manual' | 'voice'>('manual');
   const [name, setName] = useState('');
@@ -509,7 +494,7 @@ function FoodModal({ onClose, onSave }: { onClose: () => void; onSave: (e: Omit<
   const save = () => {
     const cal = parseInt(cals);
     if (!name.trim() || isNaN(cal) || cal <= 0) { alert('Bitte Name und Kalorien eingeben.'); return; }
-    onSave({ date: todayStr(), time, name: name.trim(), calories: cal, source: tab, photoPreview: undefined });
+    onSave({ date: todayStr(), time, name: name.trim(), calories: cal, source: tab });
     onClose();
   };
 
@@ -543,34 +528,32 @@ function FoodModal({ onClose, onSave }: { onClose: () => void; onSave: (e: Omit<
           </div>
         )}
 
-        {(tab === 'manual' || tab === 'voice') && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div>
-              <label className="lbl">Lebensmittel mit Menge</label>
-              <div style={{ position: 'relative' }}>
-                <input className="inp" value={name} onChange={e => { setName(e.target.value); setUserEdited(false); }}
-                  placeholder="z.B. Buchweizen 80g, Milch 200ml, Ei 2 Stück" />
-                <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 22 }}>{emoji}</span>
-              </div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Mengen: 80g · 2 EL · 1 Tasse · 1 Portion …</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <label className="lbl">Lebensmittel mit Menge</label>
+            <div style={{ position: 'relative' }}>
+              <input className="inp" value={name} onChange={e => { setName(e.target.value); setUserEdited(false); }}
+                placeholder="z.B. Buchweizen 80g, Milch 200ml, Ei 2 Stück" />
+              <span style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 22 }}>{emoji}</span>
             </div>
-
-            {parsed && (
-              <div className="aibox">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Sparkles size={14} color="#15803d" />
-                  <span style={{ fontSize: 20, fontWeight: 700, color: '#15803d' }}>{parsed.total} kcal</span>
-                  <span style={{ fontSize: 12, color: '#16a34a' }}>automatisch</span>
-                  <button onClick={() => setShowDetail(!showDetail)} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 11, color: '#0f766e', textDecoration: 'underline' }}>{showDetail ? 'ausblenden' : 'Details'}</button>
-                </div>
-                {showDetail && <div className="aidetail">{parsed.items.map((item, i) => <div key={i}><b>{item.name}</b>: {item.weight}g × {item.kcalPer100g} = {item.calories} kcal</div>)}</div>}
-              </div>
-            )}
-
-            <div><label className="lbl">Kalorien (kcal)</label><input className="inp" type="number" value={cals} onChange={e => { setCals(e.target.value); setUserEdited(true); }} placeholder="kcal" min={1} /></div>
-            <div><label className="lbl">Uhrzeit</label><input className="inp" type="time" value={time} onChange={e => setTime(e.target.value)} /></div>
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>Mengen: 80g · 2 EL · 1 Tasse · 1 Portion …</div>
           </div>
-        )}
+
+          {parsed && (
+            <div className="aibox">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Sparkles size={14} color="#15803d" />
+                <span style={{ fontSize: 20, fontWeight: 700, color: '#15803d' }}>{parsed.total} kcal</span>
+                <span style={{ fontSize: 12, color: '#16a34a' }}>automatisch</span>
+                <button onClick={() => setShowDetail(!showDetail)} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: 11, color: '#0f766e', textDecoration: 'underline', cursor: 'pointer' }}>{showDetail ? 'ausblenden' : 'Details'}</button>
+              </div>
+              {showDetail && <div className="aidetail">{parsed.items.map((item, i) => <div key={i}><b>{item.name}</b>: {item.weight}g × {item.kcalPer100g} = {item.calories} kcal</div>)}</div>}
+            </div>
+          )}
+
+          <div><label className="lbl">Kalorien (kcal)</label><input className="inp" type="number" value={cals} onChange={e => { setCals(e.target.value); setUserEdited(true); }} placeholder="kcal" min={1} /></div>
+          <div><label className="lbl">Uhrzeit</label><input className="inp" type="time" value={time} onChange={e => setTime(e.target.value)} /></div>
+        </div>
 
         <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
           <button className="bg" onClick={onClose} style={{ flex: 1, justifyContent: 'center' }}>Abbrechen</button>
@@ -581,7 +564,6 @@ function FoodModal({ onClose, onSave }: { onClose: () => void; onSave: (e: Omit<
   );
 }
 
-// ==================== ACTIVITY MODAL ====================
 function ActivityModal({ weight, onClose, onSave }: { weight: number; onClose: () => void; onSave: (a: Omit<ActivityEntry, 'id'>) => void }) {
   const [selectedSport, setSelectedSport] = useState(SPORTS[0]);
   const [duration, setDuration] = useState(30);
@@ -628,65 +610,101 @@ function ActivityModal({ weight, onClose, onSave }: { weight: number; onClose: (
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
           <button className="bg" onClick={onClose} style={{ flex: 1, justifyContent: 'center' }}>Abbrechen</button>
-          <button className="bp" onClick={() => { if ((!custom && selectedSport) || (custom && customMet)) { onSave({ date: todayStr(), sport: custom ? `Custom MET ${met}` : selectedSport.name, durationMinutes: duration, caloriesBurned: calories, met }); onClose(); } }} style={{ flex: 2, justifyContent: 'center', height: 48 }}><Save size={14} />Speichern</button>
+          <button className="bp" onClick={() => {
+            if ((!custom && selectedSport) || (custom && customMet)) {
+              onSave({ date: todayStr(), sport: custom ? `Custom MET ${met}` : selectedSport.name, durationMinutes: duration, caloriesBurned: calories, met });
+              onClose();
+            }
+          }} style={{ flex: 2, justifyContent: 'center', height: 48 }}><Save size={14} />Speichern</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ==================== WEIGHT MODAL, BT MODAL, EDIT CAL MODAL ====================
 function WeightModal({ onClose, onSave, currentWeight }: { onClose: () => void; onSave: (w: number, d: string) => void; currentWeight: number }) {
   const [weight, setWeight] = useState(String(currentWeight));
   const [date, setDate] = useState(todayStr());
   const [listening, setListening] = useState(false);
   const startVoice = () => {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition; if (!SR) return;
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
     const rec = new SR(); rec.lang = 'de-DE';
-    rec.onstart = () => setListening(true); rec.onend = () => setListening(false);
-    rec.onresult = (e: any) => { const t = e.results[0][0].transcript; const m = t.match(/(\d+)[,.](\d+)/); const v = m ? parseFloat(m[1] + '.' + m[2]) : parseFloat(t.match(/(\d+)/)?.[1] || '0'); if (v > 0 && v < 300) setWeight(String(v)); };
+    rec.onstart = () => setListening(true);
+    rec.onend = () => setListening(false);
+    rec.onresult = (e: any) => {
+      const t = e.results[0][0].transcript;
+      const m = t.match(/(\d+)[,.](\d+)/);
+      const v = m ? parseFloat(m[1] + '.' + m[2]) : parseFloat(t.match(/(\d+)/)?.[1] || '0');
+      if (v > 0 && v < 300) setWeight(String(v));
+    };
     rec.start();
   };
   return (
     <div className="moo" onClick={onClose}>
       <div className="mosh" onClick={e => e.stopPropagation()}>
         <div className="mohdl" />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}><span style={{ fontSize: 20, fontWeight: 700 }}>⚖️ Gewicht</span><button className="bic" style={{ width: 40, height: 40 }} onClick={onClose}><X size={18} /></button></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <span style={{ fontSize: 20, fontWeight: 700 }}>⚖️ Gewicht</span>
+          <button className="bic" style={{ width: 40, height: 40 }} onClick={onClose}><X size={18} /></button>
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div><label className="lbl">Datum</label><input className="inp" type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
-          <div><label className="lbl">Gewicht (kg)</label><div style={{ display: 'flex', gap: 8 }}><input className="inp" type="number" step=".1" value={weight} onChange={e => setWeight(e.target.value)} style={{ flex: 1 }} /><button className={`bic ${listening ? 'rec' : ''}`} onClick={startVoice}><Mic size={16} /></button></div></div>
+          <div>
+            <label className="lbl">Gewicht (kg)</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input className="inp" type="number" step=".1" value={weight} onChange={e => setWeight(e.target.value)} style={{ flex: 1 }} />
+              <button className={`bic ${listening ? 'rec' : ''}`} onClick={startVoice}><Mic size={16} /></button>
+            </div>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
           <button className="bg" onClick={onClose} style={{ flex: 1, justifyContent: 'center' }}>Abbrechen</button>
-          <button className="bp" onClick={() => { const v = parseFloat(weight); if (v > 0 && v < 300) { onSave(v, date); onClose(); } }} style={{ flex: 2, justifyContent: 'center', height: 48 }}><Save size={14} />Speichern</button>
+          <button className="bp" onClick={() => {
+            const v = parseFloat(weight);
+            if (v > 0 && v < 300) { onSave(v, date); onClose(); }
+          }} style={{ flex: 2, justifyContent: 'center', height: 48 }}><Save size={14} />Speichern</button>
         </div>
       </div>
     </div>
   );
 }
+
 function BtModal({ onClose, onRead }: { onClose: () => void; onRead: (w: number) => void }) {
   const [st, setSt] = useState<'idle' | 'scan' | 'conn' | 'read'>('idle');
   return (
     <div className="moo" onClick={onClose}>
       <div className="mosh" onClick={e => e.stopPropagation()}>
         <div className="mohdl" />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}><span style={{ fontSize: 20, fontWeight: 700 }}>🔗 Bluetooth-Waage</span><button className="bic" style={{ width: 40, height: 40 }} onClick={onClose}><X size={18} /></button></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <span style={{ fontSize: 20, fontWeight: 700 }}>🔗 Bluetooth-Waage</span>
+          <button className="bic" style={{ width: 40, height: 40 }} onClick={onClose}><X size={18} /></button>
+        </div>
         {st === 'idle' && <button className="bp" style={{ width: '100%', justifyContent: 'center' }} onClick={() => { setSt('scan'); setTimeout(() => setSt('conn'), 1500); }}><Bluetooth size={18} />Suchen</button>}
         {st === 'scan' && <div style={{ textAlign: 'center' }}><Loader2 size={32} className="spin" style={{ marginBottom: 8 }} /><p>Suche Waage…</p></div>}
-        {st === 'conn' && <><div style={{ background: '#f0fdf4', borderRadius: 12, padding: 12, textAlign: 'center', marginBottom: 12 }}>✓ Demo-Waage verbunden</div><button className="bp" style={{ width: '100%', justifyContent: 'center' }} onClick={() => { setSt('read'); setTimeout(() => { onRead(+(Math.random() * 70 + 50).toFixed(1)); onClose(); }, 1000); }}><Scale size={16} />Gewicht abrufen</button></>}
+        {st === 'conn' && (
+          <>
+            <div style={{ background: '#f0fdf4', borderRadius: 12, padding: 12, textAlign: 'center', marginBottom: 12 }}>✓ Demo-Waage verbunden</div>
+            <button className="bp" style={{ width: '100%', justifyContent: 'center' }} onClick={() => { setSt('read'); setTimeout(() => { onRead(+(Math.random() * 70 + 50).toFixed(1)); onClose(); }, 1000); }}><Scale size={16} />Gewicht abrufen</button>
+          </>
+        )}
         {st === 'read' && <div style={{ textAlign: 'center' }}><Loader2 size={32} className="spin" style={{ marginBottom: 8 }} /><p>Lese Gewicht…</p></div>}
         <button className="bg" onClick={onClose} style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}>Abbrechen</button>
       </div>
     </div>
   );
 }
+
 function EditCalModal({ entry, onClose, onSave }: { entry: FoodEntry; onClose: () => void; onSave: (id: string, cal: number) => void }) {
   const [cals, setCals] = useState(String(entry.calories));
   return (
     <div className="moo" onClick={onClose}>
       <div className="mosh" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
         <div className="mohdl" />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}><span style={{ fontSize: 18, fontWeight: 700 }}>✏️ Kalorien bearbeiten</span><button className="bic" style={{ width: 40, height: 40 }} onClick={onClose}><X size={18} /></button></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <span style={{ fontSize: 18, fontWeight: 700 }}>✏️ Kalorien bearbeiten</span>
+          <button className="bic" style={{ width: 40, height: 40 }} onClick={onClose}><X size={18} /></button>
+        </div>
         <div style={{ background: '#f8fafc', borderRadius: 12, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#475569' }}>{entry.name}</div>
         <div><label className="lbl">Kalorien (kcal)</label><input className="inp" type="number" value={cals} onChange={e => setCals(e.target.value)} min={1} autoFocus /></div>
         <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
@@ -701,8 +719,21 @@ function EditCalModal({ entry, onClose, onSave }: { entry: FoodEntry; onClose: (
 // ==================== HAUPTKOMPONENTE ====================
 export default function CaloriePage() {
   const router = useRouter();
+
+  // Responsive Ring-Größe
+  const [ringSize, setRingSize] = useState(90);
+  useEffect(() => {
+    const handleResize = () => setRingSize(window.innerWidth < 480 ? 70 : 90);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [chartsReady, setChartsReady] = useState(false);
-  useEffect(() => { const r = requestAnimationFrame(() => requestAnimationFrame(() => setChartsReady(true))); return () => cancelAnimationFrame(r); }, []);
+  useEffect(() => {
+    const t = setTimeout(() => setChartsReady(true), 150);
+    return () => clearTimeout(t);
+  }, []);
 
   const [profile, setProfile] = useState<UserProfile>({ age: 30, gender: 'male', weight: 75, height: 175, activityLevel: 'moderate' });
   const [result, setResult] = useState<CalorieResult | null>(null);
@@ -725,7 +756,10 @@ export default function CaloriePage() {
 
   useEffect(() => { safeLS.set(STORAGE_KEYS.weightStart, weightStart); }, [weightStart]);
 
-  const calcBMR = (p: UserProfile) => p.gender === 'male' ? 10 * p.weight + 6.25 * p.height - 5 * p.age + 5 : 10 * p.weight + 6.25 * p.height - 5 * p.age - 161;
+  const calcBMR = (p: UserProfile) => p.gender === 'male'
+    ? 10 * p.weight + 6.25 * p.height - 5 * p.age + 5
+    : 10 * p.weight + 6.25 * p.height - 5 * p.age - 161;
+
   const computeResult = useCallback((p: UserProfile) => {
     const bmr = Math.round(calcBMR(p));
     const tdee = Math.round(bmr * ACTIVITY_MULTIPLIERS[p.activityLevel].value);
@@ -734,8 +768,13 @@ export default function CaloriePage() {
 
   useEffect(() => {
     const sp = safeLS.get(STORAGE_KEYS.profile);
-    if (sp) { try { const p = JSON.parse(sp); setProfile(p); computeResult(p); setSaved(true); } catch {} } else computeResult(profile);
-    const sg = safeLS.get(STORAGE_KEYS.goal); if (sg) setGoalMode(sg as any);
+    if (sp) {
+      try { const p = JSON.parse(sp); setProfile(p); computeResult(p); setSaved(true); } catch {}
+    } else {
+      computeResult(profile);
+    }
+    const sg = safeLS.get(STORAGE_KEYS.goal);
+    if (sg) setGoalMode(sg as 'lose' | 'maintain' | 'gain');
     try { const sw = safeLS.get(STORAGE_KEYS.weight); if (sw) setWeightEntries(JSON.parse(sw)); } catch {}
     try { const sa = safeLS.get(STORAGE_KEYS.activities); if (sa) setActivities(JSON.parse(sa)); } catch {}
     try { const sf = safeLS.get(STORAGE_KEYS.food); if (sf) setFoodEntries(JSON.parse(sf)); } catch {}
@@ -746,9 +785,18 @@ export default function CaloriePage() {
   useEffect(() => { safeLS.set(STORAGE_KEYS.food, JSON.stringify(foodEntries)); }, [foodEntries]);
   useEffect(() => { safeLS.set(STORAGE_KEYS.goal, goalMode); }, [goalMode]);
 
-  const updProfile = (field: keyof UserProfile, value: any) => { const u = { ...profile, [field]: value }; setProfile(u); computeResult(u); setSaved(false); };
+  const updProfile = (field: keyof UserProfile, value: any) => {
+    const u = { ...profile, [field]: value };
+    setProfile(u);
+    computeResult(u);
+    setSaved(false);
+  };
+
   const saveWeight = (w: number, date: string) => {
-    setWeightEntries(prev => [...prev.filter(e => e.date !== date), { id: Date.now().toString(), date, weight: w, source: 'manual' }].sort((a, b) => a.date.localeCompare(b.date)));
+    setWeightEntries(prev =>
+      [...prev.filter(e => e.date !== date), { id: Date.now().toString(), date, weight: w, source: 'manual' as const }]
+        .sort((a, b) => a.date.localeCompare(b.date))
+    );
     updProfile('weight', w);
   };
 
@@ -770,36 +818,40 @@ export default function CaloriePage() {
   const underBy = profile.weight < ideal.lo ? +(ideal.lo - profile.weight).toFixed(1) : 0;
 
   const wdiff = getWeightDiff(weightEntries);
-  const trendCol = wdiff.diff < 0 ? '#16a34a' : wdiff.diff > 0 ? '#dc2626' : '#64748b';
 
   const filteredWeights = () => {
     const start = weightRangeMode === 'last7' ? fmtDate(new Date(Date.now() - 7 * 86400000)) : weightStart;
-    return weightEntries.filter(e => e.date >= start && e.date <= td).map(e => ({ date: e.date.slice(5), weight: e.weight })).sort((a, b) => a.date.localeCompare(b.date));
+    return weightEntries
+      .filter(e => e.date >= start && e.date <= td)
+      .map(e => ({ date: e.date.slice(5), weight: e.weight }))
+      .sort((a, b) => a.date.localeCompare(b.date));
   };
 
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const dt = fmtDate(new Date(Date.now() - (6 - i) * 86400000));
-    return { d: dt.slice(5), eat: foodEntries.filter(e => e.date === dt).reduce((s, e) => s + e.calories, 0), burn: activities.filter(a => a.date === dt).reduce((s, a) => s + a.caloriesBurned, 0) };
+    return {
+      d: dt.slice(5),
+      eat: foodEntries.filter(e => e.date === dt).reduce((s, e) => s + e.calories, 0),
+      burn: activities.filter(a => a.date === dt).reduce((s, a) => s + a.caloriesBurned, 0),
+    };
   });
 
   const sortedW = [...weightEntries].sort((a, b) => a.date.localeCompare(b.date));
-  const successData = sortedW.map(e => ({ date: e.date.slice(5), weight: e.weight, delta: +(sortedW[0]?.weight - e.weight).toFixed(1) }));
+  const successData = sortedW.map(e => ({
+    date: e.date.slice(5),
+    weight: e.weight,
+    delta: +(sortedW[0]?.weight - e.weight).toFixed(1),
+  }));
 
-  // --- Prognose-Daten für Diagramm (Plan + Trend) ---
   const planPrognose = buildPrognoseData(weightEntries, goalMode, result);
   const trendPrognose = buildTrendPrognoseData(weightEntries, 8);
-  // Kombinierte Daten für das Liniendiagramm
-  const combinedPrognose = planPrognose.map(p => {
+  const combinedPrognose: PrognosePoint[] = planPrognose.map(p => {
     const trend = trendPrognose.find(t => t.date === p.date);
     return { ...p, trendPrognose: trend?.trendPrognose ?? null };
   });
-
-  const expToday = getExpectedToday(weightEntries, result, goalMode);
-  const trendWeeklyRate = getTrendWeeklyRate(weightEntries);
   const projectedTrend8w = getProjectedWeightByTrend(weightEntries, 8);
   const projectedPlan8w = getPlanProjectedWeight(weightEntries, result, goalMode, 8);
 
-  // Abweichungstabelle: letzte 4 Wochen (oder weniger) – Plan vs. Ist
   const deviationData = (() => {
     if (weightEntries.length === 0 || !result) return [];
     const sorted = [...weightEntries].sort((a, b) => a.date.localeCompare(b.date));
@@ -818,7 +870,7 @@ export default function CaloriePage() {
         week: weekStr.slice(5),
         actual,
         plan: plan > 0 ? +plan.toFixed(1) : null,
-        deviation: actual ? +(actual - plan).toFixed(1) : null
+        deviation: actual ? +(actual - plan).toFixed(1) : null,
       });
     }
     return weeks;
@@ -826,11 +878,122 @@ export default function CaloriePage() {
 
   return (
     <>
-      <style>{CSS}</style>
+      <style>{`
+        :root {
+          --blue-primary: #1e3a5f;
+          --blue-accent: #2563eb;
+          --blue-dark: #0f2b44;
+          --gray-bg: #f5f7fb;
+          --card-radius: 20px;
+          --card-padding: 16px;
+          --gap-sm: 12px;
+          --gap-md: 16px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #f5f7fb; font-family: 'Inter', sans-serif; }
+        .cp { min-height: 100vh; background: #f5f7fb; padding-bottom: 60px; }
+        .hdr { background: linear-gradient(135deg, #1e3a5f 0%, #0f2b44 100%); padding: 14px 20px; border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .hdr-r { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+        .hdr-logo { font-size: 18px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 12px; }
+        .hdr-badge { background: rgba(255,255,255,.15); backdrop-filter: blur(4px); border-radius: 20px; padding: 6px 14px; color: #fff; font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+        .main { max-width: 1400px; margin: 0 auto; padding: 16px 12px; }
+        .card-grid { display: grid; grid-template-columns: 1fr; gap: var(--gap-md); align-items: start; }
+        @media(min-width: 640px) { .card-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media(min-width: 1024px) { .card-grid { grid-template-columns: repeat(3, 1fr); } }
+        .card { background: #fff; border-radius: var(--card-radius); padding: var(--card-padding); box-shadow: 0 8px 20px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02); transition: transform 0.2s, box-shadow 0.2s; border: 1px solid rgba(0,0,0,0.03); min-width: 0; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 16px 28px -8px rgba(0,0,0,0.08); }
+        .card-dk { background: linear-gradient(145deg, #1e3a5f, #132f4a); border-radius: var(--card-radius); padding: var(--card-padding); color: #fff; box-shadow: 0 12px 24px -8px rgba(0,0,0,0.2); min-width: 0; }
+        .card-full { grid-column: 1/-1; min-width: 0; }
+        @media(max-width: 639px) { .card-full { grid-column: 1; } }
+        .slbl { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+        .inp { width: 100%; height: 44px; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0 14px; font-size: 14px; font-family: inherit; background: #fafcff; transition: all 0.2s; }
+        .inp:focus { border-color: #2563eb; background: #fff; outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .sel { width: 100%; height: 44px; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0 12px; font-size: 14px; background: #fafcff; }
+        .bp { background: #2563eb; border: none; border-radius: 12px; padding: 0 18px; height: 38px; color: #fff; font-weight: 600; font-size: 12px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .bp:hover { background: #1d4ed8; transform: scale(0.98); }
+        .bg { background: #f1f5f9; border: none; border-radius: 12px; padding: 0 16px; height: 38px; color: #1e293b; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s; }
+        .bg:hover { background: #e2e8f0; }
+        .bic { background: #f1f5f9; border: none; border-radius: 12px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: #1e293b; }
+        .bic:hover { background: #e2e8f0; transform: scale(0.96); }
+        .bic.rec { background: #ff3b30; color: #fff; animation: pulse 1.2s infinite; }
+        .bdel { background: none; border: none; cursor: pointer; color: #94a3b8; padding: 6px; border-radius: 8px; transition: all 0.2s; }
+        .bdel:hover { color: #ff3b30; background: #fee2e2; }
+        .bedit { background: none; border: none; cursor: pointer; color: #94a3b8; padding: 6px; border-radius: 8px; transition: all 0.2s; }
+        .bedit:hover { color: #2563eb; background: #e0f2fe; }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeInUp 0.3s ease-out; }
+        .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .frow { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f1f5f9; transition: background 0.1s; }
+        .frow:hover { background: #f8fafc; border-radius: 12px; padding-left: 6px; }
+        .fico { width: 32px; height: 32px; background: #f1f5f9; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+        .erow { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+        .sw { background: #fff; border-radius: var(--card-radius); overflow: hidden; }
+        .stgl { width: 100%; background: #fff; border: none; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 600; color: #0f172a; }
+        .stgl:hover { background: #f8fafc; }
+        .sbody { padding: 0 18px 18px 18px; background: #fff; display: flex; flex-direction: column; gap: 14px; }
+        .lbl { font-size: 12px; font-weight: 500; color: #475569; display: block; margin-bottom: 6px; }
+        .aibox { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 12px 14px; margin-top: 8px; }
+        .aidetail { font-size: 11px; color: #166534; margin-top: 8px; line-height: 1.6; background: #e7fdf0; border-radius: 12px; padding: 8px 12px; }
+        .bmibar { position: relative; height: 6px; border-radius: 20px; overflow: hidden; background: linear-gradient(to right, #3b82f6 0%, #3b82f6 20%, #16a34a 20%, #16a34a 60%, #f59e0b 60%, #f59e0b 85%, #ef4444 85%, #ef4444 100%); }
+        .bmipip { position: absolute; top: -4px; width: 14px; height: 14px; background: #1e3a5f; border: 3px solid #fff; border-radius: 50%; transform: translateX(-50%); transition: left 0.5s cubic-bezier(0.2,0.9,0.4,1.1); box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
+        .rw { position: relative; flex-shrink: 0; }
+        .ri { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .gc { padding: 4px 12px; border-radius: 20px; border: 1.5px solid; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .tbar { display: flex; background: #f1f5f9; border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 18px; }
+        .tbtn { flex: 1; border: none; border-radius: 8px; padding: 10px; font-size: 12px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s; background: transparent; color: #64748b; }
+        .tbtn.on { background: #fff; color: #0f172a; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .moo { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); display: flex; align-items: flex-end; justify-content: center; z-index: 1000; }
+        .mosh { background: #fff; border-radius: 20px 20px 0 0; padding: 24px 20px 32px; width: 100%; max-width: 680px; max-height: 88vh; overflow-y: auto; }
+        @media(min-width: 600px) { .moo { align-items: center; } .mosh { border-radius: 20px; max-height: 80vh; } }
+        .mohdl { width: 44px; height: 5px; background: #d1d5db; border-radius: 20px; margin: 0 auto 20px; }
+        .aopt { width: 100%; padding: 10px 14px; border-radius: 12px; border: 1.5px solid #e2e8f0; text-align: left; background: #fff; cursor: pointer; transition: all 0.2s; margin-bottom: 6px; }
+        .aopt.on { border-color: #2563eb; background: #eff6ff; }
+        .chart-w { width: 100%; height: 130px; min-width: 0; overflow: hidden; }
+        .chart-wl { width: 100%; height: 180px; min-width: 0; overflow: hidden; }
+        .erfolg-stat { display: flex; flex-direction: column; align-items: center; background: #f8fafc; border-radius: 12px; padding: 10px 12px; flex: 1; min-width: 80px; }
+        .hinweis { background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #92400e; display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+        .voice-warn { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #9a3412; margin-bottom: 12px; }
+        .sport-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; max-height: 280px; overflow-y: auto; padding: 4px; }
+        .sport-card { display: flex; flex-direction: column; align-items: center; gap: 8px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 10px 6px; cursor: pointer; transition: all 0.2s; }
+        .sport-card.selected { border-color: #2563eb; background: #eff6ff; transform: scale(0.98); }
+        .sport-card:hover { background: #f1f5f9; transform: translateY(-2px); }
+        .sport-icon { width: 40px; height: 40px; background: #fff; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
+        .mini-dashboard { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+        .mini-card { flex: 1; min-width: 160px; background: #f8fafc; border-radius: 12px; padding: 10px; border: 1px solid #e2e8f0; overflow: hidden; }
+        .mini-card h4 { font-size: 12px; font-weight: 600; color: #64748b; margin-bottom: 8px; display: flex; align-items: center; gap: 4px; }
+        .mini-value { font-size: 18px; font-weight: 700; color: #1e3a5f; }
+        .mini-unit { font-size: 10px; font-weight: 400; color: #64748b; }
+        .mini-chart { height: 55px; width: 100%; margin-top: 8px; min-width: 0; overflow: hidden; }
+        .abweichung-table { font-size: 10px; width: 100%; border-collapse: collapse; margin-top: 12px; }
+        .abweichung-table th, .abweichung-table td { padding: 4px 2px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+        .abweichung-table th { color: #64748b; font-weight: 600; }
+        .positiv { color: #16a34a; }
+        .negativ { color: #dc2626; }
+        .skeleton-chart { height: 130px; background: #e2e8f0; border-radius: 12px; animation: pulse 1.5s infinite; }
+        @media (max-width: 480px) {
+          .card, .card-dk { padding: 12px; }
+          .hdr-logo { font-size: 16px; }
+          .slbl { font-size: 10px; }
+          .gc { font-size: 9px; padding: 4px 8px; }
+          .sport-card { padding: 8px 4px; }
+          .sport-icon { width: 36px; height: 36px; }
+          .mini-card { min-width: 140px; }
+          .mini-value { font-size: 16px; }
+        }
+        .bp:focus-visible, .bg:focus-visible { outline: 2px solid var(--blue-accent); outline-offset: 2px; }
+      `}</style>
       <div className="cp">
         <div className="hdr">
           <div className="hdr-r">
-            <div className="hdr-logo"><button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex' }}><ArrowLeft size={22} /></button> FamilyHub</div>
+            <div className="hdr-logo">
+              <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex' }}>
+                <ArrowLeft size={22} />
+              </button>
+              FamilyHub
+            </div>
             <div className="hdr-badge"><Flame size={14} />Kalorien & Fitness</div>
           </div>
         </div>
@@ -841,7 +1004,13 @@ export default function CaloriePage() {
             {/* MEINE DATEN */}
             <div className="sw card-full">
               <button className="stgl" onClick={() => setSettingsOpen(!settingsOpen)}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Settings size={14} /><span>Meine Daten</span><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: saved ? '#f0fdf4' : '#fffbeb', color: saved ? '#16a34a' : '#d97706' }}>{saved ? 'gespeichert' : 'neu'}</span></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Settings size={14} />
+                  <span>Meine Daten</span>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 20, background: saved ? '#f0fdf4' : '#fffbeb', color: saved ? '#16a34a' : '#d97706' }}>
+                    {saved ? 'gespeichert' : 'neu'}
+                  </span>
+                </div>
                 {settingsOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </button>
               {settingsOpen && (
@@ -863,8 +1032,17 @@ export default function CaloriePage() {
                       ))}
                     </div>
                   </div>
-                  {result && <div style={{ background: '#f1f5f9', borderRadius: 12, padding: '10px 14px', fontSize: 12, display: 'flex', gap: 16, flexWrap: 'wrap' }}><span><b>BMR</b> {result.bmr} kcal</span><span><b>TDEE</b> {result.tdee} kcal</span><span><b>Ziel ({goalMode === 'lose' ? 'Abnehmen' : goalMode === 'maintain' ? 'Halten' : 'Zunehmen'})</b> {result.goalCalories[goalMode]} kcal</span></div>}
-                  <div style={{ display: 'flex', gap: 8 }}><button className="bp" onClick={() => { safeLS.set(STORAGE_KEYS.profile, JSON.stringify(profile)); setSaved(true); }} disabled={saved} style={{ flex: 1, justifyContent: 'center' }}><Save size={13} />Speichern</button><button className="bg" onClick={() => { const d: UserProfile = { age: 30, gender: 'male', weight: 75, height: 175, activityLevel: 'moderate' }; setProfile(d); computeResult(d); safeLS.del(STORAGE_KEYS.profile); setSaved(false); }}><RotateCcw size={13} />Reset</button></div>
+                  {result && (
+                    <div style={{ background: '#f1f5f9', borderRadius: 12, padding: '10px 14px', fontSize: 12, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                      <span><b>BMR</b> {result.bmr} kcal</span>
+                      <span><b>TDEE</b> {result.tdee} kcal</span>
+                      <span><b>Ziel ({goalMode === 'lose' ? 'Abnehmen' : goalMode === 'maintain' ? 'Halten' : 'Zunehmen'})</b> {result.goalCalories[goalMode]} kcal</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="bp" onClick={() => { safeLS.set(STORAGE_KEYS.profile, JSON.stringify(profile)); setSaved(true); }} disabled={saved} style={{ flex: 1, justifyContent: 'center' }}><Save size={13} />Speichern</button>
+                    <button className="bg" onClick={() => { const d: UserProfile = { age: 30, gender: 'male', weight: 75, height: 175, activityLevel: 'moderate' }; setProfile(d); computeResult(d); safeLS.del(STORAGE_KEYS.profile); setSaved(false); }}><RotateCcw size={13} />Reset</button>
+                  </div>
                 </div>
               )}
             </div>
@@ -880,12 +1058,25 @@ export default function CaloriePage() {
                   ))}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                  <div className="rw"><Ring pct={pct} color={ringColor} /><div className="ri"><span style={{ fontSize: 18, fontWeight: 700 }}>{consumed}</span><span style={{ fontSize: 9 }}>gegessen</span></div></div>
-                  <div style={{ flex: 1 }}><div style={{ fontSize: 32, fontWeight: 700, lineHeight: 1 }}>{remaining}</div><div style={{ fontSize: 12, opacity: 0.8 }}>{remaining > 0 ? 'kcal noch frei' : '🎯 Tagesziel erreicht!'}</div><div style={{ fontSize: 10, opacity: 0.6 }}>Ziel {target} · +{burned} verbrannt</div><div style={{ marginTop: 8, background: 'rgba(255,255,255,.2)', borderRadius: 20, height: 4 }}><div style={{ height: 4, borderRadius: 20, background: ringColor, width: `${Math.min(pct, 100)}%`, transition: 'width 0.6s' }} /></div></div>
+                  <div className="rw">
+                    <Ring pct={pct} size={ringSize} color={ringColor} />
+                    <div className="ri"><span style={{ fontSize: 18, fontWeight: 700 }}>{consumed}</span><span style={{ fontSize: 9 }}>gegessen</span></div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 32, fontWeight: 700, lineHeight: 1 }}>{remaining}</div>
+                    <div style={{ fontSize: 12, opacity: 0.8 }}>{remaining > 0 ? 'kcal noch frei' : '🎯 Tagesziel erreicht!'}</div>
+                    <div style={{ fontSize: 10, opacity: 0.6 }}>Ziel {target} · +{burned} verbrannt</div>
+                    <div style={{ marginTop: 8, background: 'rgba(255,255,255,.2)', borderRadius: 20, height: 4 }}>
+                      <div style={{ height: 4, borderRadius: 20, background: ringColor, width: `${Math.min(pct, 100)}%`, transition: 'width 0.6s' }} />
+                    </div>
+                  </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 12 }}>
                   {[{ val: consumed, lbl: 'Gegessen', col: '#ffd60a' }, { val: burned, lbl: 'Verbrannt', col: '#30d158' }, { val: target, lbl: 'Ziel', col: 'rgba(255,255,255,.7)' }].map(({ val, lbl, col }) => (
-                    <div key={lbl} style={{ background: 'rgba(255,255,255,.1)', borderRadius: 12, padding: '8px 6px', textAlign: 'center' }}><div style={{ fontSize: 18, fontWeight: 700, color: col }}>{val}</div><div style={{ fontSize: 9, opacity: 0.7 }}>{lbl}</div></div>
+                    <div key={lbl} style={{ background: 'rgba(255,255,255,.1)', borderRadius: 12, padding: '6px 4px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: col }}>{val}</div>
+                      <div style={{ fontSize: 9, opacity: 0.7 }}>{lbl}</div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -893,97 +1084,187 @@ export default function CaloriePage() {
 
             {/* MAHLZEITEN */}
             <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}><div className="slbl" style={{ margin: 0 }}><UtensilsCrossed size={12} />Mahlzeiten heute</div><button className="bp" onClick={() => setShowFood(true)}><Plus size={13} />Eintragen</button></div>
-              {todayFood.length === 0 ? <div style={{ textAlign: 'center', padding: '20px 0', color: '#94a3b8' }}><Coffee size={24} style={{ marginBottom: 6 }} /><div style={{ fontSize: 12 }}>Keine Mahlzeiten</div></div> : todayFood.map(e => (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div className="slbl" style={{ margin: 0 }}><UtensilsCrossed size={12} />Mahlzeiten heute</div>
+                <button className="bp" onClick={() => setShowFood(true)}><Plus size={13} />Eintragen</button>
+              </div>
+              {todayFood.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '20px 0', color: '#94a3b8' }}>
+                  <Coffee size={24} style={{ marginBottom: 6 }} />
+                  <div style={{ fontSize: 12 }}>Keine Mahlzeiten</div>
+                </div>
+              ) : todayFood.map(e => (
                 <div key={e.id} className="frow">
                   <div className="fico" style={{ fontSize: 22 }}>{getFoodEmoji(e.name)}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 500 }}>{e.name}</div><div style={{ fontSize: 10, color: '#64748b' }}>{e.time}</div></div>
-                  <span style={{ fontSize: 14, fontWeight: 700 }}>{e.calories}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div>
+                    <div style={{ fontSize: 10, color: '#64748b' }}>{e.time}</div>
+                  </div>
+                  <span style={{ fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{e.calories}</span>
                   <button className="bedit" onClick={() => setEditFood(e)}><Edit2 size={13} /></button>
                   <button className="bdel" onClick={() => setFoodEntries(p => p.filter(x => x.id !== e.id))}><Trash2 size={13} /></button>
                 </div>
               ))}
-              {todayFood.length > 0 && <div style={{ borderTop: '1px solid #f1f5f9', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}><span>{todayFood.length} Einträge</span><span style={{ fontWeight: 700 }}>{consumed} kcal</span></div>}
+              {todayFood.length > 0 && (
+                <div style={{ borderTop: '1px solid #f1f5f9', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                  <span>{todayFood.length} Einträge</span>
+                  <span style={{ fontWeight: 700 }}>{consumed} kcal</span>
+                </div>
+              )}
             </div>
 
             {/* AKTIVITÄTEN */}
             <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}><div className="slbl" style={{ margin: 0 }}><Dumbbell size={12} />Aktivitäten heute</div><button className="bp" onClick={() => setShowActivity(true)}><Plus size={13} />Eintragen</button></div>
-              {todayActs.length === 0 ? <div style={{ textAlign: 'center', padding: '16px 0', color: '#94a3b8', fontSize: 12 }}>Noch keine Aktivität</div> : todayActs.map(a => {
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div className="slbl" style={{ margin: 0 }}><Dumbbell size={12} />Aktivitäten heute</div>
+                <button className="bp" onClick={() => setShowActivity(true)}><Plus size={13} />Eintragen</button>
+              </div>
+              {todayActs.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '16px 0', color: '#94a3b8', fontSize: 12 }}>Noch keine Aktivität</div>
+              ) : todayActs.map(a => {
                 const sportObj = SPORTS.find(s => s.name === a.sport);
                 const Icon = sportObj?.icon || Activity;
                 return (
                   <div key={a.id} className="frow">
                     <div className="fico"><Icon size={20} strokeWidth={1.5} /></div>
-                    <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 500 }}>{a.sport}</div><div style={{ fontSize: 10, color: '#64748b' }}>{a.durationMinutes} min</div></div>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#30d158' }}>−{a.caloriesBurned}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{a.sport}</div>
+                      <div style={{ fontSize: 10, color: '#64748b' }}>{a.durationMinutes} min</div>
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#30d158', flexShrink: 0 }}>−{a.caloriesBurned}</span>
                     <button className="bdel" onClick={() => setActivities(p => p.filter(x => x.id !== a.id))}><Trash2 size={13} /></button>
                   </div>
                 );
               })}
-              <button className="bg" onClick={() => setShowActHist(!showActHist)} style={{ width: '100%', justifyContent: 'center', marginTop: 10, height: 38 }}>{showActHist ? <ChevronUp size={12} /> : <ChevronDown size={12} />}Verlauf</button>
-              {showActHist && activities.slice(0, 10).map(a => <div key={a.id} className="erow"><span style={{ width: 70, color: '#64748b' }}>{a.date}</span><span style={{ flex: 1 }}>{a.sport}</span><span style={{ color: '#30d158' }}>{a.caloriesBurned}</span><button className="bdel" onClick={() => setActivities(p => p.filter(x => x.id !== a.id))}><Trash2 size={11} /></button></div>)}
+              <button className="bg" onClick={() => setShowActHist(!showActHist)} style={{ width: '100%', justifyContent: 'center', marginTop: 10, height: 36 }}>
+                {showActHist ? <ChevronUp size={12} /> : <ChevronDown size={12} />}Verlauf
+              </button>
+              {showActHist && activities.slice(0, 10).map(a => (
+                <div key={a.id} className="erow">
+                  <span style={{ width: 70, color: '#64748b' }}>{a.date}</span>
+                  <span style={{ flex: 1 }}>{a.sport}</span>
+                  <span style={{ color: '#30d158' }}>{a.caloriesBurned}</span>
+                  <button className="bdel" onClick={() => setActivities(p => p.filter(x => x.id !== a.id))}><Trash2 size={11} /></button>
+                </div>
+              ))}
             </div>
 
             {/* GEWICHT & KÖRPER */}
             <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}><div className="slbl" style={{ margin: 0 }}><Scale size={12} />Gewicht & Körper</div><div style={{ display: 'flex', gap: 6 }}><button className="bp" onClick={() => setShowWeight(true)}><Plus size={13} />Eintragen</button><button className="bic" onClick={() => setShowBt(true)}><Bluetooth size={14} /></button></div></div>
-              <div style={{ textAlign: 'center', marginBottom: 12 }}><div style={{ fontSize: 48, fontWeight: 700, lineHeight: 1 }}>{profile.weight}<span style={{ fontSize: 18 }}> kg</span></div><div style={{ fontSize: 12, color: '#64748b' }}>BMI {bmi.toFixed(1)} · <span style={{ color: bmiCat.color }}>{bmiCat.label}</span></div></div>
-              <div className="bmibar"><div className="bmipip" style={{ left: `${bmiPct}%` }} /></div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#94a3b8', margin: '4px 0 12px' }}><span>Unter</span><span>Normal</span><span>Über</span><span>Adipositas</span></div>
-              <div className="g2" style={{ gap: 8 }}>
-                <div style={{ background: '#f0f9ff', borderRadius: 12, padding: '8px 12px' }}><div style={{ fontSize: 10, fontWeight: 600, color: '#0369a1' }}>Idealgewicht</div><div style={{ fontSize: 18, fontWeight: 700 }}>{ideal.lo}–{ideal.hi} kg</div></div>
-                {overBy > 0 ? <div style={{ background: '#fff7ed', borderRadius: 12, padding: '8px 12px' }}><div style={{ fontSize: 10, fontWeight: 600, color: '#c2410c' }}>Bis Ideal</div><div style={{ fontSize: 22, fontWeight: 700 }}>{overBy} kg</div><div style={{ fontSize: 10 }}>abzunehmen</div></div> : underBy > 0 ? <div style={{ background: '#eff6ff', borderRadius: 12, padding: '8px 12px' }}><div style={{ fontSize: 10, fontWeight: 600, color: '#1d4ed8' }}>Bis Normal</div><div style={{ fontSize: 18, fontWeight: 700 }}>{underBy} kg</div><div style={{ fontSize: 10 }}>zuzunehmen</div></div> : <div style={{ background: '#f0fdf4', borderRadius: 12, padding: '8px 12px', textAlign: 'center' }}><div style={{ fontSize: 24 }}>🎯</div><div style={{ fontSize: 12, fontWeight: 700, color: '#15803d' }}>Idealgewicht!</div></div>}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <div className="slbl" style={{ margin: 0 }}><Scale size={12} />Gewicht & Körper</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="bp" onClick={() => setShowWeight(true)}><Plus size={13} />Eintragen</button>
+                  <button className="bic" onClick={() => setShowBt(true)}><Bluetooth size={14} /></button>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: 6, marginTop: 12, marginBottom: 8 }}><button className={weightRangeMode === 'last7' ? 'bp' : 'bg'} style={{ padding: '0 12px', height: 32, fontSize: 11 }} onClick={() => setWeightRangeMode('last7')}>7 Tage</button><button className={weightRangeMode === 'custom' ? 'bp' : 'bg'} style={{ padding: '0 12px', height: 32, fontSize: 11 }} onClick={() => setWeightRangeMode('custom')}>Zeitraum</button>{weightRangeMode === 'custom' && <input type="date" className="inp" value={weightStart} onChange={e => setWeightStart(e.target.value)} style={{ height: 32, fontSize: 11, flex: 1 }} />}</div>
-              {chartsReady && filteredWeights().length > 0 ? <div className="chart-w"><ResponsiveContainer width="100%" height="100%"><LineChart data={filteredWeights()} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}><CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" /><XAxis dataKey="date" tick={{ fontSize: 9, fill: '#64748b' }} /><YAxis domain={['auto', 'auto']} unit="kg" tick={{ fontSize: 9, fill: '#64748b' }} width={30} /><Tooltip formatter={(v: any) => `${v} kg`} contentStyle={{ borderRadius: 12, fontSize: 11 }} /><Line type="monotone" dataKey="weight" stroke="#1e3a5f" strokeWidth={2} dot={{ r: 2 }} /></LineChart></ResponsiveContainer></div> : chartsReady && <p style={{ textAlign: 'center', color: '#94a3b8', padding: 16 }}>Keine Daten im Zeitraum</p>}
-              <button className="bg" onClick={() => setShowWChart(!showWChart)} style={{ width: '100%', justifyContent: 'center', marginTop: 8, height: 36 }}>{showWChart ? <ChevronUp size={12} /> : <ChevronDown size={12} />}Alle Einträge</button>
-              {showWChart && weightEntries.slice().reverse().slice(0, 8).map(e => <div key={e.id} className="erow"><span>{e.date}</span><span style={{ fontWeight: 600 }}>{e.weight} kg</span><button className="bdel" onClick={() => setWeightEntries(p => p.filter(w => w.id !== e.id))}><Trash2 size={12} /></button></div>)}
+              <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                <div style={{ fontSize: 48, fontWeight: 700, lineHeight: 1 }}>{profile.weight}<span style={{ fontSize: 18 }}> kg</span></div>
+                <div style={{ fontSize: 12, color: '#64748b' }}>BMI {bmi.toFixed(1)} · <span style={{ color: bmiCat.color }}>{bmiCat.label}</span></div>
+              </div>
+              <div className="bmibar"><div className="bmipip" style={{ left: `${bmiPct}%` }} /></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: '#94a3b8', margin: '4px 0 12px' }}>
+                <span>Unter</span><span>Normal</span><span>Über</span><span>Adipositas</span>
+              </div>
+              <div className="g2" style={{ gap: 8 }}>
+                <div style={{ background: '#f0f9ff', borderRadius: 12, padding: '8px 12px' }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: '#0369a1' }}>Idealgewicht</div>
+                  <div style={{ fontSize: 18, fontWeight: 700 }}>{ideal.lo}–{ideal.hi} kg</div>
+                </div>
+                {overBy > 0 ? (
+                  <div style={{ background: '#fff7ed', borderRadius: 12, padding: '8px 12px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: '#c2410c' }}>Bis Ideal</div>
+                    <div style={{ fontSize: 22, fontWeight: 700 }}>{overBy} kg</div>
+                    <div style={{ fontSize: 10 }}>abzunehmen</div>
+                  </div>
+                ) : underBy > 0 ? (
+                  <div style={{ background: '#eff6ff', borderRadius: 12, padding: '8px 12px' }}>
+                    <div style={{ fontSize: 10, fontWeight: 600, color: '#1d4ed8' }}>Bis Normal</div>
+                    <div style={{ fontSize: 18, fontWeight: 700 }}>{underBy} kg</div>
+                    <div style={{ fontSize: 10 }}>zuzunehmen</div>
+                  </div>
+                ) : (
+                  <div style={{ background: '#f0fdf4', borderRadius: 12, padding: '8px 12px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 24 }}>🎯</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#15803d' }}>Idealgewicht!</div>
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 12, marginBottom: 8 }}>
+                <button className={weightRangeMode === 'last7' ? 'bp' : 'bg'} style={{ padding: '0 12px', height: 32, fontSize: 11 }} onClick={() => setWeightRangeMode('last7')}>7 Tage</button>
+                <button className={weightRangeMode === 'custom' ? 'bp' : 'bg'} style={{ padding: '0 12px', height: 32, fontSize: 11 }} onClick={() => setWeightRangeMode('custom')}>Zeitraum</button>
+                {weightRangeMode === 'custom' && <input type="date" className="inp" value={weightStart} onChange={e => setWeightStart(e.target.value)} style={{ height: 32, fontSize: 11, flex: 1 }} />}
+              </div>
+              {chartsReady && filteredWeights().length > 0 ? (
+                <div className="chart-w">
+                  <ResponsiveLineChart data={filteredWeights()} height={130} margin={{ top: 4, right: 4, left: -12, bottom: 0 }}>
+                    <CartesianGrid stroke="#f1f5f9" strokeDasharray="3 3" />
+                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#64748b' }} />
+                    <YAxis domain={['auto', 'auto']} unit="kg" tick={{ fontSize: 9, fill: '#64748b' }} width={30} />
+                    <Tooltip formatter={(v: any) => `${v} kg`} contentStyle={{ borderRadius: 12, fontSize: 11 }} />
+                    <Line type="monotone" dataKey="weight" stroke="#1e3a5f" strokeWidth={2} dot={{ r: 2 }} />
+                  </ResponsiveLineChart>
+                </div>
+              ) : chartsReady ? (
+                <p style={{ textAlign: 'center', color: '#94a3b8', padding: 16 }}>Keine Daten im Zeitraum</p>
+              ) : (
+                <div className="skeleton-chart" />
+              )}
+              <button className="bg" onClick={() => setShowWChart(!showWChart)} style={{ width: '100%', justifyContent: 'center', marginTop: 8, height: 36 }}>
+                {showWChart ? <ChevronUp size={12} /> : <ChevronDown size={12} />}Alle Einträge
+              </button>
+              {showWChart && weightEntries.slice().reverse().slice(0, 8).map(e => (
+                <div key={e.id} className="erow">
+                  <span>{e.date}</span>
+                  <span style={{ fontWeight: 600 }}>{e.weight} kg</span>
+                  <button className="bdel" onClick={() => setWeightEntries(p => p.filter(w => w.id !== e.id))}><Trash2 size={12} /></button>
+                </div>
+              ))}
             </div>
 
-            {/* NEUE MINI-DASHBOARDS: FORTSCHRITT & PROGNOSE + ABWEICHUNGSTABELLE */}
+            {/* ANALYSE & PROGNOSE */}
             <div className="card card-full">
               <div className="slbl"><Target size={12} /> Analyse & Prognose</div>
               <div className="mini-dashboard">
-                {/* Fortschritt */}
                 <div className="mini-card">
                   <h4><TrendingUp size={12} /> Bisheriger Fortschritt</h4>
                   {sortedW.length >= 2 ? (
                     <>
                       <div className="mini-value">{Math.abs(wdiff.diff).toFixed(1)} <span className="mini-unit">kg</span></div>
-                      <div style={{ fontSize: 10, color: '#64748b' }}>{wdiff.diff <= 0 ? 'Abgenommen' : 'Zugenommen'} (Ø {Math.abs(wdiff.weeklyRate).toFixed(2)} kg/Woche)</div>
+                      <div style={{ fontSize: 10, color: '#64748b' }}>
+                        {wdiff.diff <= 0 ? 'Abgenommen' : 'Zugenommen'} (Ø {Math.abs(wdiff.weeklyRate).toFixed(2)} kg/Woche)
+                      </div>
                       <div className="mini-chart">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={successData.slice(-7)} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                            <Area type="monotone" dataKey="weight" stroke="#1e3a5f" strokeWidth={1.5} fill="#e2e8f0" dot={false} />
-                          </AreaChart>
-                        </ResponsiveContainer>
+                        <ResponsiveAreaChart data={successData.slice(-7)} height={55} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                          <Area type="monotone" dataKey="weight" stroke="#1e3a5f" strokeWidth={1.5} fill="#e2e8f0" dot={false} />
+                        </ResponsiveAreaChart>
                       </div>
                     </>
                   ) : (
                     <div style={{ fontSize: 12, color: '#94a3b8', padding: '8px 0' }}>Gewicht eintragen</div>
                   )}
                 </div>
-
-                {/* Prognose: Plan vs. Tatsächlicher Trend */}
                 <div className="mini-card">
                   <h4><Activity size={12} /> 8‑Wochen‑Prognose</h4>
-                  {projectedTrend8w && projectedPlan8w ? (
+                  {projectedTrend8w !== null && projectedPlan8w !== null ? (
                     <>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                         <div><span style={{ fontSize: 10, color: '#64748b' }}>Plan</span><br /><span className="mini-value">{projectedPlan8w.toFixed(1)} kg</span></div>
                         <div><span style={{ fontSize: 10, color: '#64748b' }}>Trend</span><br /><span className="mini-value">{projectedTrend8w.toFixed(1)} kg</span></div>
-                        <div><span style={{ fontSize: 10, color: '#64748b' }}>Differenz</span><br /><span className={`mini-value ${(projectedTrend8w - projectedPlan8w) > 0 ? 'negativ' : 'positiv'}`}>{(projectedTrend8w - projectedPlan8w).toFixed(1)} kg</span></div>
+                        <div>
+                          <span style={{ fontSize: 10, color: '#64748b' }}>Differenz</span><br />
+                          <span className={`mini-value ${(projectedTrend8w - projectedPlan8w) > 0 ? 'negativ' : 'positiv'}`}>
+                            {(projectedTrend8w - projectedPlan8w).toFixed(1)} kg
+                          </span>
+                        </div>
                       </div>
                       <div className="mini-chart">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart data={combinedPrognose} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                            <Line type="monotone" dataKey="planPrognose" stroke="#2563eb" strokeWidth={1.5} strokeDasharray="3 3" dot={false} name="Plan" />
-                            <Line type="monotone" dataKey="trendPrognose" stroke="#16a34a" strokeWidth={1.5} dot={false} name="Trend" />
-                            <Line type="monotone" dataKey="actual" stroke="#1e3a5f" strokeWidth={1.5} dot={{ r: 1.5 }} name="Ist" />
-                            <Tooltip contentStyle={{ fontSize: 10 }} />
-                          </LineChart>
-                        </ResponsiveContainer>
+                        <ResponsiveLineChart data={combinedPrognose} height={55} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                          <Line type="monotone" dataKey="planPrognose" stroke="#2563eb" strokeWidth={1.5} strokeDasharray="3 3" dot={false} name="Plan" />
+                          <Line type="monotone" dataKey="trendPrognose" stroke="#16a34a" strokeWidth={1.5} dot={false} name="Trend" />
+                          <Line type="monotone" dataKey="actual" stroke="#1e3a5f" strokeWidth={1.5} dot={{ r: 1.5 }} name="Ist" />
+                          <Tooltip contentStyle={{ fontSize: 10 }} />
+                        </ResponsiveLineChart>
                       </div>
                     </>
                   ) : (
@@ -991,11 +1272,11 @@ export default function CaloriePage() {
                   )}
                 </div>
               </div>
-
-              {/* Abweichungstabelle */}
               {deviationData.length > 0 && deviationData.some(d => d.actual !== null) && (
                 <div style={{ marginTop: 16 }}>
-                  <h4 style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}><Info size={12} /> Abweichung vom Plan (Soll/Ist)</h4>
+                  <h4 style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <Info size={12} /> Abweichung vom Plan (Soll/Ist)
+                  </h4>
                   <table className="abweichung-table">
                     <thead>
                       <tr><th>Woche</th><th>Soll (kg)</th><th>Ist (kg)</th><th>Abweichung</th></tr>
@@ -1008,12 +1289,14 @@ export default function CaloriePage() {
                           <td>{d.actual ?? '–'}</td>
                           <td className={d.deviation !== null ? (d.deviation > 0 ? 'negativ' : 'positiv') : ''}>
                             {d.deviation !== null ? (d.deviation > 0 ? `+${d.deviation}` : d.deviation) : '–'}
-                          </td>
+                           </td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
-                  <div style={{ fontSize: 10, color: '#64748b', marginTop: 6 }}>Positive Abweichung = mehr Gewicht als geplant (weniger abgenommen/mehr zugenommen).</div>
+                   </table>
+                  <div style={{ fontSize: 10, color: '#64748b', marginTop: 6 }}>
+                    Positive Abweichung = mehr Gewicht als geplant (weniger abgenommen/mehr zugenommen).
+                  </div>
                 </div>
               )}
             </div>
@@ -1021,9 +1304,37 @@ export default function CaloriePage() {
             {/* 7 TAGE KALORIEN */}
             <div className="card card-full">
               <div className="slbl"><Activity size={12} /> Kalorien der letzten 7 Tage</div>
-              {chartsReady && last7.some(d => d.eat > 0 || d.burn > 0) ? <div className="chart-w" style={{ height: 160 }}><ResponsiveContainer><BarChart data={last7} margin={{ top: 4, right: 4, left: -12, bottom: 0 }} barCategoryGap="20%"><CartesianGrid stroke="#f1f5f9" /><XAxis dataKey="d" tick={{ fontSize: 9 }} /><YAxis tick={{ fontSize: 9 }} width={35} /><Tooltip formatter={(v: number) => `${v} kcal`} />{result && <ReferenceLine y={target} stroke="#f59e0b" strokeDasharray="4 3" strokeWidth={1.5} label={{ value: `Ziel ${target}`, position: 'right', fontSize: 9, fill: '#f59e0b' }} />}<Bar dataKey="eat" fill="#1e3a5f" name="Gegessen" radius={[4, 4, 0, 0]} /><Bar dataKey="burn" fill="#30d158" name="Verbrannt" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div> : chartsReady && <p style={{ textAlign: 'center', padding: 20 }}>Noch keine Daten für die letzte Woche</p>}
-              <button className="bg" onClick={() => setShowFoodHist(!showFoodHist)} style={{ width: '100%', justifyContent: 'center', marginTop: 12, height: 40 }}>{showFoodHist ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Alle Mahlzeiten</button>
-              {showFoodHist && foodEntries.slice(0, 20).map(e => <div key={e.id} className="erow"><span style={{ width: 58 }}>{e.date}</span><span style={{ width: 36 }}>{e.time}</span><span style={{ width: 24 }}>{getFoodEmoji(e.name)}</span><span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name}</span><span style={{ fontWeight: 600 }}>{e.calories}</span><button className="bedit" onClick={() => setEditFood(e)}><Edit2 size={11} /></button><button className="bdel" onClick={() => setFoodEntries(p => p.filter(x => x.id !== e.id))}><Trash2 size={11} /></button></div>)}
+              {chartsReady && last7.some(d => d.eat > 0 || d.burn > 0) ? (
+                <div className="chart-w" style={{ height: 140 }}>
+                  <ResponsiveBarChart data={last7} height={140} margin={{ top: 4, right: 4, left: -12, bottom: 0 }} barCategoryGap="20%">
+                    <CartesianGrid stroke="#f1f5f9" />
+                    <XAxis dataKey="d" tick={{ fontSize: 9 }} />
+                    <YAxis tick={{ fontSize: 9 }} width={35} />
+                    <Tooltip formatter={(v: number) => `${v} kcal`} />
+                    {result && <ReferenceLine y={target} stroke="#f59e0b" strokeDasharray="4 3" strokeWidth={1.5} label={{ value: `Ziel ${target}`, position: 'right', fontSize: 9, fill: '#f59e0b' }} />}
+                    <Bar dataKey="eat" fill="#1e3a5f" name="Gegessen" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="burn" fill="#30d158" name="Verbrannt" radius={[4, 4, 0, 0]} />
+                  </ResponsiveBarChart>
+                </div>
+              ) : chartsReady ? (
+                <p style={{ textAlign: 'center', padding: 20 }}>Noch keine Daten für die letzte Woche</p>
+              ) : (
+                <div className="skeleton-chart" style={{ height: 140 }} />
+              )}
+              <button className="bg" onClick={() => setShowFoodHist(!showFoodHist)} style={{ width: '100%', justifyContent: 'center', marginTop: 12, height: 36 }}>
+                {showFoodHist ? <ChevronUp size={12} /> : <ChevronDown size={12} />} Alle Mahlzeiten
+              </button>
+              {showFoodHist && foodEntries.slice(0, 20).map(e => (
+                <div key={e.id} className="erow">
+                  <span style={{ width: 58 }}>{e.date}</span>
+                  <span style={{ width: 36 }}>{e.time}</span>
+                  <span style={{ width: 24 }}>{getFoodEmoji(e.name)}</span>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</span>
+                  <span style={{ fontWeight: 600, flexShrink: 0 }}>{e.calories}</span>
+                  <button className="bedit" onClick={() => setEditFood(e)}><Edit2 size={11} /></button>
+                  <button className="bdel" onClick={() => setFoodEntries(p => p.filter(x => x.id !== e.id))}><Trash2 size={11} /></button>
+                </div>
+              ))}
             </div>
 
           </div>
