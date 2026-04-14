@@ -444,7 +444,7 @@ function Ring({ pct, size = 90, sw = 10, color = '#30d158' }: { pct: number; siz
   );
 }
 
-// ==================== MODALS (unverändert, aber Platz sparend) ====================
+// ==================== MODALS ====================
 function FoodModal({ onClose, onSave }: { onClose: () => void; onSave: (e: Omit<FoodEntry, 'id'>) => void }) {
   const [tab, setTab] = useState<'manual' | 'voice'>('manual');
   const [name, setName] = useState('');
@@ -1293,7 +1293,7 @@ export default function CaloriePage() {
                         </tr>
                       ))}
                     </tbody>
-                   </table>
+                  </table>
                   <div style={{ fontSize: 10, color: '#64748b', marginTop: 6 }}>
                     Positive Abweichung = mehr Gewicht als geplant (weniger abgenommen/mehr zugenommen).
                   </div>
@@ -1310,7 +1310,7 @@ export default function CaloriePage() {
                     <CartesianGrid stroke="#f1f5f9" />
                     <XAxis dataKey="d" tick={{ fontSize: 9 }} />
                     <YAxis tick={{ fontSize: 9 }} width={35} />
-                    <Tooltip formatter={(v: number) => `${v} kcal`} />
+                    <Tooltip formatter={(v: any) => `${v} kcal`} />
                     {result && <ReferenceLine y={target} stroke="#f59e0b" strokeDasharray="4 3" strokeWidth={1.5} label={{ value: `Ziel ${target}`, position: 'right', fontSize: 9, fill: '#f59e0b' }} />}
                     <Bar dataKey="eat" fill="#1e3a5f" name="Gegessen" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="burn" fill="#30d158" name="Verbrannt" radius={[4, 4, 0, 0]} />

@@ -986,7 +986,7 @@ export default function RezeptePage() {
             isFavorite={favorites.includes(selectedRecipe.id)}
             onAddToShopping={() => addToShoppingList(selectedRecipe)}
             mealPlan={mealPlan}
-            onAddToMealPlan={(dayIdx) => addToMealPlan(selectedRecipe, dayIdx)}
+            onAddToMealPlan={(dayIdx: number) => addToMealPlan(selectedRecipe, dayIdx)}
           />
         )}
       </div>

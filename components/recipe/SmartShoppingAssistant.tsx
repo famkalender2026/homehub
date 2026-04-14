@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Camera, Store, DollarSign, BarChart3, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+//import { TrendingUp, Camera, Store, DollarSign, BarChart3, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { TrendingUp, Camera, Store, DollarSign, BarChart3, Plus, ChevronDown, ChevronUp, ShoppingCart } from 'lucide-react';
 import { Product, Purchase, ShoppingItem, PurchaseItem } from '@/lib/recipe/types';
 import { getProducts, saveProducts, getPurchases, savePurchases } from '@/lib/recipe/storage';
 import { estimatePrice, matchProduct } from '@/lib/recipe/data';
