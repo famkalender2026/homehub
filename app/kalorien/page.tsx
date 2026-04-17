@@ -8,14 +8,14 @@ import {
   UtensilsCrossed, ChevronDown, ChevronUp, X, Loader2, Settings,
   Sparkles, Heart, Activity, CalendarIcon, Edit2, Target, Info,
   Footprints, Bike, Droplets, Zap, Sun, Moon, Apple, Salad, Egg, Fish, Beef, Wheat, Milk, BatteryCharging,
-  Music
+  Music, RefreshCw, Star, BookOpen
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, ReferenceLine, Area, AreaChart
 } from 'recharts';
 
-// ========== HILFSKOMPONENTE FÜR CHARTS OHNE WARNUNG ==========
+// ========== HILFSKOMPONENTEN FÜR CHARTS ==========
 function ResponsiveLineChart({ data, height = 130, ...props }: any) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -92,6 +92,17 @@ interface WeightEntry { id: string; date: string; weight: number; source: 'manua
 interface ActivityEntry { id: string; date: string; sport: string; durationMinutes: number; caloriesBurned: number; met: number; }
 interface FoodEntry { id: string; date: string; time: string; name: string; calories: number; source: 'manual' | 'voice' | 'photo'; photoPreview?: string; }
 
+interface Recipe {
+  id: string;
+  name: string;
+  calories: number;
+  explanation: string;
+  ingredients: string[];
+  instructions: string;
+  mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  isFavorite?: boolean;
+}
+
 // ==================== KONSTANTEN ====================
 const SPORTS = [
   { name: 'Gehen (3 km/h)', met: 2.0, icon: Footprints },
@@ -121,7 +132,9 @@ const STORAGE_KEYS = {
   activities: 'familyhub_activities',
   food: 'familyhub_food_entries',
   goal: 'familyhub_calorie_goal',
-  weightStart: 'familyhub_weight_start_date'
+  weightStart: 'familyhub_weight_start_date',
+  calorieLimitManual: 'familyhub_calorie_limit_manual',
+  favoriteRecipes: 'familyhub_favorite_recipes'
 };
 const safeLS = {
   get: (k: string) => { try { return typeof window !== 'undefined' ? localStorage.getItem(k) : null; } catch { return null; } },
@@ -132,71 +145,7 @@ const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
 const todayStr = () => fmtDate(new Date());
 const nowTime = () => new Date().toTimeString().slice(0, 5);
 
-// ==================== HILFSFUNKTIONEN ====================
-function idealWeight(height: number) {
-  const m = height / 100;
-  return { lo: Math.round(18.5 * m * m), hi: Math.round(24.9 * m * m) };
-}
-function getBMI(weight: number, height: number) { const m = height / 100; return weight / (m * m); }
-function getBMICategory(bmi: number): { label: string; color: string } {
-  if (bmi < 18.5) return { label: 'Untergewicht', color: '#3b82f6' };
-  if (bmi < 25) return { label: 'Normalgewicht', color: '#16a34a' };
-  if (bmi < 30) return { label: 'Übergewicht', color: '#f59e0b' };
-  return { label: 'Adipositas', color: '#ef4444' };
-}
-function getWeightDiff(entries: WeightEntry[]) {
-  if (entries.length === 0) return { diff: 0, weeklyRate: 0, startWeight: 0, currentWeight: 0 };
-  const s = [...entries].sort((a, b) => a.date.localeCompare(b.date));
-  const diff = s[s.length - 1].weight - s[0].weight;
-  const days = (new Date(s[s.length - 1].date).getTime() - new Date(s[0].date).getTime()) / 86400000;
-  return { diff, weeklyRate: days > 0 ? diff / (days / 7) : 0, startWeight: s[0].weight, currentWeight: s[s.length - 1].weight };
-}
-
-// ==================== TREND & REGRESSION ====================
-function linearRegression(entries: WeightEntry[]): { slope: number; intercept: number; r2: number } | null {
-  if (entries.length < 2) return null;
-  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
-  const firstDate = new Date(sorted[0].date).getTime();
-  const points = sorted.map(e => ({
-    x: (new Date(e.date).getTime() - firstDate) / (1000 * 3600 * 24),
-    y: e.weight
-  }));
-  const n = points.length;
-  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
-  for (const p of points) {
-    sumX += p.x; sumY += p.y; sumXY += p.x * p.y; sumX2 += p.x * p.x; sumY2 += p.y * p.y;
-  }
-  const denominator = n * sumX2 - sumX * sumX;
-  if (denominator === 0) return null;
-  const slope = (n * sumXY - sumX * sumY) / denominator;
-  const intercept = (sumY - slope * sumX) / n;
-  const ssRes = points.reduce((sum, p) => sum + (p.y - (slope * p.x + intercept)) ** 2, 0);
-  const ssTot = sumY2 - (sumY * sumY) / n;
-  const r2 = ssTot === 0 ? 1 : 1 - ssRes / ssTot;
-  return { slope, intercept, r2 };
-}
-
-function getProjectedWeightByTrend(entries: WeightEntry[], weeks: number): number | null {
-  const reg = linearRegression(entries);
-  if (!reg) return null;
-  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
-  const lastDate = new Date(sorted[sorted.length - 1].date);
-  const firstDate = new Date(sorted[0].date);
-  const daysFromFirst = (lastDate.getTime() - firstDate.getTime()) / (1000 * 3600 * 24);
-  const lastWeight = reg.intercept + reg.slope * daysFromFirst;
-  return lastWeight + reg.slope * (weeks * 7);
-}
-
-function getPlanProjectedWeight(entries: WeightEntry[], result: CalorieResult | null, goalMode: 'lose' | 'maintain' | 'gain', weeks: number): number | null {
-  if (!result || entries.length === 0) return null;
-  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
-  const last = sorted[sorted.length - 1];
-  const dailyDiff = result.goalCalories[goalMode] - result.tdee;
-  const weeklyKgChange = (dailyDiff * 7) / 7700;
-  return last.weight + weeklyKgChange * weeks;
-}
-
-// ==================== LEBENSMITTEL-DATENBANK ====================
+// ==================== LEBENSMITTEL-DATENBANK (für parseFoodLine) ====================
 const foodDB: Record<string, number> = {
   buchweizen: 343, buchweizenmehl: 335, haferflocken: 371, hafer: 389,
   granola: 450, cornflakes: 378, dinkel: 338, dinkelmehl: 348,
@@ -362,7 +311,121 @@ function parseFoodLine(input: string): { total: number; items: ParsedItem[] } | 
   return { total, items: results };
 }
 
-// ==================== PROGNOSE ====================
+// ==================== REZEPT-DATENBANK ====================
+const RECIPE_DB: Recipe[] = [
+  { id: 'b1', name: 'Haferflocken mit Beeren', calories: 350, explanation: 'Ballaststoffreiches Porridge mit frischen Beeren und einem Klecks Joghurt.',
+    ingredients: ['50g Haferflocken', '200ml Milch oder Wasser', '100g gemischte Beeren', '1 TL Honig', '1 EL Joghurt (optional)'],
+    instructions: 'Haferflocken mit Milch/Wasser aufkochen, 5 Minuten köcheln. In eine Schüssel geben, Beeren darauf verteilen, mit Honig beträufeln.', mealType: 'breakfast' },
+  { id: 'b2', name: 'Vollkornbrot mit Avocado', calories: 420, explanation: '2 Scheiben Vollkornbrot, halbe Avocado, Tomaten und etwas Salz/Pfeffer.',
+    ingredients: ['2 Scheiben Vollkornbrot', '1/2 Avocado', '4 Kirschtomaten', 'Salz, Pfeffer', 'etwas Zitronensaft'],
+    instructions: 'Brot toasten. Avocado zerdrücken, mit Zitronensaft, Salz und Pfeffer vermischen. Auf Brot streichen, Tomaten darauf legen.', mealType: 'breakfast' },
+  { id: 'b3', name: 'Griechischer Joghurt mit Honig', calories: 280, explanation: '150g Joghurt, 1 EL Honig, Walnüsse und Zimt.',
+    ingredients: ['150g griechischer Joghurt', '1 EL Honig', '20g Walnüsse', '1 Prise Zimt'],
+    instructions: 'Joghurt in Schüssel geben, Honig unterrühren. Walnüsse hacken und darüber streuen, mit Zimt bestäuben.', mealType: 'breakfast' },
+  { id: 'b4', name: 'Rührei mit Spinat', calories: 320, explanation: '3 Eier, Handvoll frischer Spinat, etwas Zwiebel – in Olivenöl gebraten.',
+    ingredients: ['3 Eier', '50g frischer Spinat', '1/2 Zwiebel', '1 EL Olivenöl', 'Salz, Pfeffer'],
+    instructions: 'Zwiebel in Öl glasig dünsten. Spinat zugeben und zusammenfallen lassen. Eier verquirlen, über das Gemüse gießen und stocken lassen.', mealType: 'breakfast' },
+  { id: 'l1', name: 'Hähnchen-Gemüse-Pfanne', calories: 480, explanation: 'Hähnchenbruststreifen mit Brokkoli, Paprika und Zuckerschoten in Sojasoße.',
+    ingredients: ['200g Hähnchenbrust', '100g Brokkoli', '1 rote Paprika', '50g Zuckerschoten', '2 EL Sojasoße', '1 TL Öl'],
+    instructions: 'Hähnchen anbraten, herausnehmen. Gemüse kurz anbraten, Hähnchen wieder zugeben, Sojasoße hinzufügen und 2-3 Minuten braten.', mealType: 'lunch' },
+  { id: 'l2', name: 'Quinoa-Salat mit Feta', calories: 450, explanation: 'Quinoa, Gurke, Tomate, Oliven, Feta, Zitronen-Vinaigrette.',
+    ingredients: ['100g Quinoa', '1/2 Gurke', '150g Kirschtomaten', '50g Feta', '50g Oliven', '1 EL Olivenöl', 'Saft einer Zitrone'],
+    instructions: 'Quinoa kochen, abkühlen lassen. Gemüse klein schneiden, mit Quinoa vermengen. Feta zerbröseln. Dressing aus Öl, Zitronensaft und Gewürzen zugeben.', mealType: 'lunch' },
+  { id: 'l3', name: 'Veggie-Bowl mit Kichererbsen', calories: 520, explanation: 'Reis, geröstete Kichererbsen, Avocado, Karotten, Tahin-Dressing.',
+    ingredients: ['150g gekochter Reis', '200g Kichererbsen', '1/2 Avocado', '1 Karotte', '2 EL Tahin', '1 EL Zitronensaft'],
+    instructions: 'Kichererbsen rösten. Reis in Bowl geben, Kichererbsen, Karottenstreifen und Avocado anrichten. Tahin mit Zitronensaft und Wasser zu Soße verrühren.', mealType: 'lunch' },
+  { id: 'l4', name: 'Linsensuppe', calories: 380, explanation: 'Herzhafte rote Linsensuppe mit Karotten, Sellerie und Kreuzkümmel.',
+    ingredients: ['150g rote Linsen', '1 Zwiebel', '2 Karotten', '1 Stange Sellerie', '1 TL Kreuzkümmel', '500ml Gemüsebrühe', '1 EL Olivenöl'],
+    instructions: 'Gemüse würfeln und in Öl anbraten. Linsen und Kreuzkümmel mitbraten, mit Brühe ablöschen und 20 Minuten köcheln. Pürieren und abschmecken.', mealType: 'lunch' },
+  { id: 'd1', name: 'Gebackener Lachs mit Spargel', calories: 520, explanation: 'Lachsfilet mit Zitrone und Dill, dazu grüner Spargel und Kartoffelecken.',
+    ingredients: ['200g Lachsfilet', '200g grüner Spargel', '200g kleine Kartoffeln', '1 Zitrone', 'Dill', 'Salz, Pfeffer', '1 EL Olivenöl'],
+    instructions: 'Kartoffeln halbieren, mit Öl und Salz mischen, bei 200°C 15 Minuten vorbacken. Lachs würzen, mit Zitrone und Spargel aufs Blech legen, weitere 15 Minuten backen.', mealType: 'dinner' },
+  { id: 'd2', name: 'Zucchini-Nudeln mit Pesto', calories: 390, explanation: 'Zoodles mit selbstgemachtem Basilikum-Pesto und Kirschtomaten.',
+    ingredients: ['2 Zucchini', '100g Kirschtomaten', '40g Basilikum', '30g Pinienkerne', '30g Parmesan', '1 Knoblauchzehe', '4 EL Olivenöl'],
+    instructions: 'Zucchini zu Nudeln spiralisieren. Pesto aus Basilikum, Pinienkernen, Parmesan, Knoblauch und ÖL mixen. Zoodles kurz erwärmen, Pesto unterheben, mit Tomaten servieren.', mealType: 'dinner' },
+  { id: 'd3', name: 'Vegetarische Chili sin Carne', calories: 410, explanation: 'Bohnen, Mais, Paprika, Zwiebeln in Tomatensoße – serviert mit etwas Reis.',
+    ingredients: ['1 Zwiebel', '1 Paprika', '200g Kidneybohnen', '150g Mais', '400g Tomaten (Dose)', '1 TL Chili', '1 TL Kreuzkümmel', '1 EL Öl'],
+    instructions: 'Zwiebel und Paprika in Öl anbraten. Bohnen, Mais und Tomaten zugeben, mit Chili, Kreuzkümmel würzen, 15 Minuten köcheln.', mealType: 'dinner' },
+  { id: 'd4', name: 'Putenbrust mit Süßkartoffelpüree', calories: 550, explanation: 'Saftige Putenbrust, cremiges Süßkartoffelpüree und gedünsteter Brokkoli.',
+    ingredients: ['200g Putenbrust', '300g Süßkartoffeln', '150g Brokkoli', '50ml Milch', '1 TL Butter', 'Salz, Pfeffer, Paprikapulver', '1 EL Öl'],
+    instructions: 'Süßkartoffeln kochen und pürieren. Brokkoli dämpfen. Putenbrust anbraten und fertig garen. Alles anrichten.', mealType: 'dinner' },
+  { id: 's1', name: 'Apfel mit Mandelbutter', calories: 180, explanation: 'Ein Apfel, 1 EL Mandelbutter.',
+    ingredients: ['1 Apfel', '1 EL Mandelbutter'],
+    instructions: 'Apfel waschen, in Spalten schneiden und mit Mandelbutter genießen.', mealType: 'snack' },
+  { id: 's2', name: 'Protein-Shake', calories: 150, explanation: '1 Scoop Whey, 200ml Mandelmilch, halbe Banane.',
+    ingredients: ['1 Scoop Proteinpulver', '200ml Mandelmilch', '1/2 Banane'],
+    instructions: 'Alle Zutaten mixen.', mealType: 'snack' },
+  { id: 's3', name: 'Gemüsesticks mit Hummus', calories: 200, explanation: 'Karotten, Gurke, Paprika – 3 EL Hummus.',
+    ingredients: ['1 Karotte', '1/2 Gurke', '1/2 Paprika', '3 EL Hummus'],
+    instructions: 'Gemüse in Sticks schneiden und mit Hummus dippen.', mealType: 'snack' },
+  { id: 's4', name: 'Griechischer Joghurt (klein)', calories: 120, explanation: '100g Joghurt mit einem TL Honig.',
+    ingredients: ['100g griechischer Joghurt', '1 TL Honig'],
+    instructions: 'Joghurt in Schälchen geben, Honig darüber träufeln.', mealType: 'snack' },
+];
+
+// ==================== HILFSFUNKTIONEN (BMI, idealWeight, etc.) ====================
+function idealWeight(height: number) {
+  const m = height / 100;
+  return { lo: Math.round(18.5 * m * m), hi: Math.round(24.9 * m * m) };
+}
+function getBMI(weight: number, height: number) { const m = height / 100; return weight / (m * m); }
+function getBMICategory(bmi: number): { label: string; color: string } {
+  if (bmi < 18.5) return { label: 'Untergewicht', color: '#3b82f6' };
+  if (bmi < 25) return { label: 'Normalgewicht', color: '#16a34a' };
+  if (bmi < 30) return { label: 'Übergewicht', color: '#f59e0b' };
+  return { label: 'Adipositas', color: '#ef4444' };
+}
+function getWeightDiff(entries: WeightEntry[]) {
+  if (entries.length === 0) return { diff: 0, weeklyRate: 0, startWeight: 0, currentWeight: 0 };
+  const s = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const diff = s[s.length - 1].weight - s[0].weight;
+  const days = (new Date(s[s.length - 1].date).getTime() - new Date(s[0].date).getTime()) / 86400000;
+  return { diff, weeklyRate: days > 0 ? diff / (days / 7) : 0, startWeight: s[0].weight, currentWeight: s[s.length - 1].weight };
+}
+
+function linearRegression(entries: WeightEntry[]): { slope: number; intercept: number; r2: number } | null {
+  if (entries.length < 2) return null;
+  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const firstDate = new Date(sorted[0].date).getTime();
+  const points = sorted.map(e => ({
+    x: (new Date(e.date).getTime() - firstDate) / (1000 * 3600 * 24),
+    y: e.weight
+  }));
+  const n = points.length;
+  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+  for (const p of points) {
+    sumX += p.x; sumY += p.y; sumXY += p.x * p.y; sumX2 += p.x * p.x; sumY2 += p.y * p.y;
+  }
+  const denominator = n * sumX2 - sumX * sumX;
+  if (denominator === 0) return null;
+  const slope = (n * sumXY - sumX * sumY) / denominator;
+  const intercept = (sumY - slope * sumX) / n;
+  const ssRes = points.reduce((sum, p) => sum + (p.y - (slope * p.x + intercept)) ** 2, 0);
+  const ssTot = sumY2 - (sumY * sumY) / n;
+  const r2 = ssTot === 0 ? 1 : 1 - ssRes / ssTot;
+  return { slope, intercept, r2 };
+}
+
+function getProjectedWeightByTrend(entries: WeightEntry[], weeks: number): number | null {
+  const reg = linearRegression(entries);
+  if (!reg) return null;
+  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const lastDate = new Date(sorted[sorted.length - 1].date);
+  const firstDate = new Date(sorted[0].date);
+  const daysFromFirst = (lastDate.getTime() - firstDate.getTime()) / (1000 * 3600 * 24);
+  const lastWeight = reg.intercept + reg.slope * daysFromFirst;
+  return lastWeight + reg.slope * (weeks * 7);
+}
+
+function getPlanProjectedWeight(entries: WeightEntry[], result: CalorieResult | null, goalMode: 'lose' | 'maintain' | 'gain', weeks: number): number | null {
+  if (!result || entries.length === 0) return null;
+  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
+  const last = sorted[sorted.length - 1];
+  const dailyDiff = result.goalCalories[goalMode] - result.tdee;
+  const weeklyKgChange = (dailyDiff * 7) / 7700;
+  return last.weight + weeklyKgChange * weeks;
+}
+
 interface PrognosePoint {
   date: string;
   label: string;
@@ -371,11 +434,7 @@ interface PrognosePoint {
   trendPrognose: number | null;
 }
 
-function buildPrognoseData(
-  entries: WeightEntry[],
-  goalMode: 'lose' | 'maintain' | 'gain',
-  result: CalorieResult | null
-): PrognosePoint[] {
+function buildPrognoseData(entries: WeightEntry[], goalMode: 'lose' | 'maintain' | 'gain', result: CalorieResult | null): PrognosePoint[] {
   if (!result || entries.length < 1) return [];
   const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date));
   const last = sorted[sorted.length - 1];
@@ -431,7 +490,6 @@ function buildTrendPrognoseData(entries: WeightEntry[], weeks = 8): PrognosePoin
   return result;
 }
 
-// ==================== RING ====================
 function Ring({ pct, size = 90, sw = 10, color = '#30d158' }: { pct: number; size?: number; sw?: number; color?: string }) {
   const r = (size - sw) / 2, c = 2 * Math.PI * r, d = Math.min(pct / 100, 1) * c;
   return (
@@ -716,11 +774,38 @@ function EditCalModal({ entry, onClose, onSave }: { entry: FoodEntry; onClose: (
   );
 }
 
+function RecipeDetailModal({ recipe, onClose }: { recipe: Recipe; onClose: () => void }) {
+  return (
+    <div className="moo" onClick={onClose}>
+      <div className="mosh" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+        <div className="mohdl" />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <span style={{ fontSize: 20, fontWeight: 700 }}>{recipe.name}</span>
+          <button className="bic" style={{ width: 40, height: 40 }} onClick={onClose}><X size={18} /></button>
+        </div>
+        <div style={{ background: '#f1f5f9', borderRadius: 12, padding: 8, marginBottom: 16, textAlign: 'center' }}>
+          <span style={{ fontWeight: 700 }}>{recipe.calories} kcal</span>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>🛒 Zutaten:</div>
+          <ul style={{ paddingLeft: 20, fontSize: 13, color: '#334155' }}>
+            {recipe.ingredients.map((ing, idx) => <li key={idx}>{ing}</li>)}
+          </ul>
+        </div>
+        <div>
+          <div style={{ fontWeight: 600, marginBottom: 8 }}>🍳 Zubereitung:</div>
+          <div style={{ fontSize: 13, color: '#334155', lineHeight: 1.5 }}>{recipe.instructions}</div>
+        </div>
+        <button className="bp" onClick={onClose} style={{ width: '100%', justifyContent: 'center', marginTop: 20 }}>Schließen</button>
+      </div>
+    </div>
+  );
+}
+
 // ==================== HAUPTKOMPONENTE ====================
 export default function CaloriePage() {
   const router = useRouter();
 
-  // Responsive Ring-Größe
   const [ringSize, setRingSize] = useState(90);
   useEffect(() => {
     const handleResize = () => setRingSize(window.innerWidth < 480 ? 70 : 90);
@@ -754,7 +839,40 @@ export default function CaloriePage() {
   const [showBt, setShowBt] = useState(false);
   const [editFood, setEditFood] = useState<FoodEntry | null>(null);
 
-  useEffect(() => { safeLS.set(STORAGE_KEYS.weightStart, weightStart); }, [weightStart]);
+  const [showFoodToday, setShowFoodToday] = useState(false);
+  const [showActivityToday, setShowActivityToday] = useState(false);
+
+  const [calorieLimitManual, setCalorieLimitManual] = useState<number | null>(() => {
+    const saved = safeLS.get(STORAGE_KEYS.calorieLimitManual);
+    return saved ? parseInt(saved) : null;
+  });
+  const [useManualLimit, setUseManualLimit] = useState(false);
+  const [showRecipeSuggestions, setShowRecipeSuggestions] = useState(false);
+  const [currentRecipes, setCurrentRecipes] = useState<Recipe[]>([]);
+  const [favoriteRecipes, setFavoriteRecipes] = useState<Recipe[]>(() => {
+    const fav = safeLS.get(STORAGE_KEYS.favoriteRecipes);
+    return fav ? JSON.parse(fav) : [];
+  });
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [showFavorites, setShowFavorites] = useState(true);
+
+  // Dynamische Button-Farbe basierend auf goalMode
+  const getGoalColor = () => {
+    switch (goalMode) {
+      case 'lose': return '#ef4444';
+      case 'maintain': return '#10b981';
+      case 'gain': return '#3b82f6';
+      default: return '#2563eb';
+    }
+  };
+
+  useEffect(() => {
+    safeLS.set(STORAGE_KEYS.favoriteRecipes, JSON.stringify(favoriteRecipes));
+  }, [favoriteRecipes]);
+
+  useEffect(() => {
+    safeLS.set(STORAGE_KEYS.calorieLimitManual, calorieLimitManual ? String(calorieLimitManual) : '');
+  }, [calorieLimitManual]);
 
   const calcBMR = (p: UserProfile) => p.gender === 'male'
     ? 10 * p.weight + 6.25 * p.height - 5 * p.age + 5
@@ -798,6 +916,36 @@ export default function CaloriePage() {
         .sort((a, b) => a.date.localeCompare(b.date))
     );
     updProfile('weight', w);
+  };
+
+  const generateDailySuggestions = useCallback((limit: number) => {
+    const breakfastOptions = RECIPE_DB.filter(r => r.mealType === 'breakfast');
+    const lunchOptions = RECIPE_DB.filter(r => r.mealType === 'lunch');
+    const dinnerOptions = RECIPE_DB.filter(r => r.mealType === 'dinner');
+    const snackOptions = RECIPE_DB.filter(r => r.mealType === 'snack');
+
+    const randomBreakfast = breakfastOptions[Math.floor(Math.random() * breakfastOptions.length)];
+    const randomLunch = lunchOptions[Math.floor(Math.random() * lunchOptions.length)];
+    const randomDinner = dinnerOptions[Math.floor(Math.random() * dinnerOptions.length)];
+    const randomSnack = snackOptions[Math.floor(Math.random() * snackOptions.length)];
+
+    setCurrentRecipes([randomBreakfast, randomLunch, randomDinner, randomSnack]);
+    setShowRecipeSuggestions(true);
+  }, []);
+
+  const getCurrentLimit = (): number => {
+    if (useManualLimit && calorieLimitManual) return calorieLimitManual;
+    if (result) return result.goalCalories[goalMode];
+    return 2000;
+  };
+
+  const toggleFavorite = (recipe: Recipe) => {
+    const exists = favoriteRecipes.some(r => r.id === recipe.id);
+    if (exists) {
+      setFavoriteRecipes(prev => prev.filter(r => r.id !== recipe.id));
+    } else {
+      setFavoriteRecipes(prev => [...prev, { ...recipe, isFavorite: true }]);
+    }
   };
 
   const td = todayStr();
@@ -876,6 +1024,9 @@ export default function CaloriePage() {
     return weeks;
   })();
 
+  const dateIn8Weeks = new Date(Date.now() + 8 * 7 * 86400000);
+  const formatted8WeeksDate = dateIn8Weeks.toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
   return (
     <>
       <style>{`
@@ -909,8 +1060,27 @@ export default function CaloriePage() {
         .inp { width: 100%; height: 44px; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0 14px; font-size: 14px; font-family: inherit; background: #fafcff; transition: all 0.2s; }
         .inp:focus { border-color: #2563eb; background: #fff; outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
         .sel { width: 100%; height: 44px; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0 12px; font-size: 14px; background: #fafcff; }
-        .bp { background: #2563eb; border: none; border-radius: 12px; padding: 0 18px; height: 38px; color: #fff; font-weight: 600; font-size: 12px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-        .bp:hover { background: #1d4ed8; transform: scale(0.98); }
+        .bp {
+          background: var(--button-color, #2563eb);
+          border: none;
+          border-radius: 12px;
+          padding: 0 18px;
+          height: 38px;
+          color: #fff;
+          font-weight: 600;
+          font-size: 12px;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          transition: all 0.2s;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .bp:hover {
+          background: var(--button-color, #2563eb);
+          filter: brightness(0.9);
+          transform: scale(0.98);
+        }
         .bg { background: #f1f5f9; border: none; border-radius: 12px; padding: 0 16px; height: 38px; color: #1e293b; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s; }
         .bg:hover { background: #e2e8f0; }
         .bic { background: #f1f5f9; border: none; border-radius: 12px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: #1e293b; }
@@ -984,8 +1154,17 @@ export default function CaloriePage() {
           .mini-value { font-size: 16px; }
         }
         .bp:focus-visible, .bg:focus-visible { outline: 2px solid var(--blue-accent); outline-offset: 2px; }
+        .recipe-card { background: #f8fafc; border-radius: 16px; padding: 12px; margin-bottom: 12px; border-left: 4px solid #2563eb; }
+        .recipe-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .recipe-name { font-weight: 700; font-size: 14px; }
+        .recipe-cal { font-weight: 600; color: #2563eb; }
+        .recipe-explain { font-size: 12px; color: #475569; margin-top: 4px; }
+        .fav-btn { background: none; border: none; cursor: pointer; color: #f59e0b; transition: transform 0.1s; }
+        .fav-btn:hover { transform: scale(1.1); }
+        .details-btn { background: none; border: none; cursor: pointer; color: #64748b; transition: color 0.2s; }
+        .details-btn:hover { color: #2563eb; }
       `}</style>
-      <div className="cp">
+      <div className="cp" style={{ '--button-color': getGoalColor() } as React.CSSProperties}>
         <div className="hdr">
           <div className="hdr-r">
             <div className="hdr-logo">
@@ -1047,15 +1226,39 @@ export default function CaloriePage() {
               )}
             </div>
 
-            {/* TAGESRING */}
+            {/* TAGESRING mit farbigen Ziel-Buttons */}
             {result && (
               <div className="card-dk">
                 <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
-                  {(['lose', 'maintain', 'gain'] as const).map(k => (
-                    <button key={k} className="gc" onClick={() => setGoalMode(k)} style={{ borderColor: goalMode === k ? '#fff' : 'rgba(255,255,255,.3)', background: goalMode === k ? '#fff' : 'transparent', color: goalMode === k ? '#1e3a5f' : 'rgba(255,255,255,.85)' }}>
-                      {k === 'lose' ? `Abnehmen · ${result.goalCalories.lose}` : k === 'maintain' ? `Halten · ${result.goalCalories.maintain}` : `Zunehmen · ${result.goalCalories.gain}`}
-                    </button>
-                  ))}
+                  {(['lose', 'maintain', 'gain'] as const).map(k => {
+                    let bgColor = 'transparent';
+                    let textColor = 'rgba(255,255,255,.85)';
+                    let borderColor = 'rgba(255,255,255,.3)';
+                    if (goalMode === k) {
+                      if (k === 'lose') { bgColor = '#ef4444'; textColor = '#fff'; borderColor = '#ef4444'; }
+                      if (k === 'maintain') { bgColor = '#10b981'; textColor = '#fff'; borderColor = '#10b981'; }
+                      if (k === 'gain') { bgColor = '#3b82f6'; textColor = '#fff'; borderColor = '#3b82f6'; }
+                    } else {
+                      if (k === 'lose') borderColor = '#ef4444';
+                      if (k === 'maintain') borderColor = '#10b981';
+                      if (k === 'gain') borderColor = '#3b82f6';
+                    }
+                    return (
+                      <button
+                        key={k}
+                        className="gc"
+                        onClick={() => setGoalMode(k)}
+                        style={{
+                          borderColor: borderColor,
+                          background: bgColor,
+                          color: textColor,
+                          opacity: goalMode === k ? 1 : 0.7
+                        }}
+                      >
+                        {k === 'lose' ? `Abnehmen · ${result.goalCalories.lose}` : k === 'maintain' ? `Halten · ${result.goalCalories.maintain}` : `Zunehmen · ${result.goalCalories.gain}`}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                   <div className="rw">
@@ -1082,60 +1285,84 @@ export default function CaloriePage() {
               </div>
             )}
 
-            {/* MAHLZEITEN */}
+            {/* MAHLZEITEN heute – aufklappbar */}
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <div className="slbl" style={{ margin: 0 }}><UtensilsCrossed size={12} />Mahlzeiten heute</div>
-                <button className="bp" onClick={() => setShowFood(true)}><Plus size={13} />Eintragen</button>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="bp" onClick={() => setShowFood(true)}><Plus size={13} />Eintragen</button>
+                  <button className="bg" onClick={() => setShowFoodToday(!showFoodToday)} style={{ padding: '0 10px' }}>
+                    {showFoodToday ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    {showFoodToday ? 'ausblenden' : 'heute anzeigen'}
+                  </button>
+                </div>
               </div>
-              {todayFood.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '20px 0', color: '#94a3b8' }}>
-                  <Coffee size={24} style={{ marginBottom: 6 }} />
-                  <div style={{ fontSize: 12 }}>Keine Mahlzeiten</div>
-                </div>
-              ) : todayFood.map(e => (
-                <div key={e.id} className="frow">
-                  <div className="fico" style={{ fontSize: 22 }}>{getFoodEmoji(e.name)}</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div>
-                    <div style={{ fontSize: 10, color: '#64748b' }}>{e.time}</div>
-                  </div>
-                  <span style={{ fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{e.calories}</span>
-                  <button className="bedit" onClick={() => setEditFood(e)}><Edit2 size={13} /></button>
-                  <button className="bdel" onClick={() => setFoodEntries(p => p.filter(x => x.id !== e.id))}><Trash2 size={13} /></button>
-                </div>
-              ))}
-              {todayFood.length > 0 && (
-                <div style={{ borderTop: '1px solid #f1f5f9', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span>{todayFood.length} Einträge</span>
-                  <span style={{ fontWeight: 700 }}>{consumed} kcal</span>
-                </div>
+              {showFoodToday && (
+                <>
+                  {todayFood.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '20px 0', color: '#94a3b8' }}>
+                      <Coffee size={24} style={{ marginBottom: 6 }} />
+                      <div style={{ fontSize: 12 }}>Keine Mahlzeiten</div>
+                    </div>
+                  ) : (
+                    todayFood.map(e => (
+                      <div key={e.id} className="frow">
+                        <div className="fico" style={{ fontSize: 22 }}>{getFoodEmoji(e.name)}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div>
+                          <div style={{ fontSize: 10, color: '#64748b' }}>{e.time}</div>
+                        </div>
+                        <span style={{ fontSize: 14, fontWeight: 700, flexShrink: 0 }}>{e.calories}</span>
+                        <button className="bedit" onClick={() => setEditFood(e)}><Edit2 size={13} /></button>
+                        <button className="bdel" onClick={() => setFoodEntries(p => p.filter(x => x.id !== e.id))}><Trash2 size={13} /></button>
+                      </div>
+                    ))
+                  )}
+                  {todayFood.length > 0 && (
+                    <div style={{ borderTop: '1px solid #f1f5f9', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                      <span>{todayFood.length} Einträge</span>
+                      <span style={{ fontWeight: 700 }}>{consumed} kcal</span>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
-            {/* AKTIVITÄTEN */}
+            {/* AKTIVITÄTEN heute – aufklappbar */}
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <div className="slbl" style={{ margin: 0 }}><Dumbbell size={12} />Aktivitäten heute</div>
-                <button className="bp" onClick={() => setShowActivity(true)}><Plus size={13} />Eintragen</button>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="bp" onClick={() => setShowActivity(true)}><Plus size={13} />Eintragen</button>
+                  <button className="bg" onClick={() => setShowActivityToday(!showActivityToday)} style={{ padding: '0 10px' }}>
+                    {showActivityToday ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                    {showActivityToday ? 'ausblenden' : 'heute anzeigen'}
+                  </button>
+                </div>
               </div>
-              {todayActs.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '16px 0', color: '#94a3b8', fontSize: 12 }}>Noch keine Aktivität</div>
-              ) : todayActs.map(a => {
-                const sportObj = SPORTS.find(s => s.name === a.sport);
-                const Icon = sportObj?.icon || Activity;
-                return (
-                  <div key={a.id} className="frow">
-                    <div className="fico"><Icon size={20} strokeWidth={1.5} /></div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>{a.sport}</div>
-                      <div style={{ fontSize: 10, color: '#64748b' }}>{a.durationMinutes} min</div>
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: '#30d158', flexShrink: 0 }}>−{a.caloriesBurned}</span>
-                    <button className="bdel" onClick={() => setActivities(p => p.filter(x => x.id !== a.id))}><Trash2 size={13} /></button>
-                  </div>
-                );
-              })}
+              {showActivityToday && (
+                <>
+                  {todayActs.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '16px 0', color: '#94a3b8', fontSize: 12 }}>Noch keine Aktivität</div>
+                  ) : (
+                    todayActs.map(a => {
+                      const sportObj = SPORTS.find(s => s.name === a.sport);
+                      const Icon = sportObj?.icon || Activity;
+                      return (
+                        <div key={a.id} className="frow">
+                          <div className="fico"><Icon size={20} strokeWidth={1.5} /></div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>{a.sport}</div>
+                            <div style={{ fontSize: 10, color: '#64748b' }}>{a.durationMinutes} min</div>
+                          </div>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: '#30d158', flexShrink: 0 }}>−{a.caloriesBurned}</span>
+                          <button className="bdel" onClick={() => setActivities(p => p.filter(x => x.id !== a.id))}><Trash2 size={13} /></button>
+                        </div>
+                      );
+                    })
+                  )}
+                </>
+              )}
               <button className="bg" onClick={() => setShowActHist(!showActHist)} style={{ width: '100%', justifyContent: 'center', marginTop: 10, height: 36 }}>
                 {showActHist ? <ChevronUp size={12} /> : <ChevronDown size={12} />}Verlauf
               </button>
@@ -1222,7 +1449,102 @@ export default function CaloriePage() {
               ))}
             </div>
 
-            {/* ANALYSE & PROGNOSE */}
+            {/* KALORIENPLAN & VORSCHLÄGE */}
+            <div className="card">
+              <div className="slbl"><Target size={12} /> Kalorienplan</div>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 8 }}>
+                  <input type="checkbox" checked={useManualLimit} onChange={e => setUseManualLimit(e.target.checked)} />
+                  Manuelles Limit verwenden (sonst wird Ziel aus Abnehmen/Halten/Zunehmen genutzt)
+                </label>
+                {useManualLimit && (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input className="inp" type="number" value={calorieLimitManual || ''} onChange={e => setCalorieLimitManual(parseInt(e.target.value) || null)} placeholder="z.B. 2200" style={{ flex: 1 }} />
+                    <span>kcal</span>
+                  </div>
+                )}
+                <div style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>
+                  Aktuelles Limit: <strong>{getCurrentLimit()} kcal</strong> {useManualLimit ? '(manuell)' : `(aus Ziel: ${goalMode === 'lose' ? 'Abnehmen' : goalMode === 'maintain' ? 'Halten' : 'Zunehmen'})`}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <button className="bp" onClick={() => generateDailySuggestions(getCurrentLimit())}>
+                  <Sparkles size={14} /> Vorschläge
+                </button>
+                {showRecipeSuggestions && (
+                  <button className="bg" onClick={() => generateDailySuggestions(getCurrentLimit())}>
+                    <RefreshCw size={14} /> Neue Vorschläge
+                  </button>
+                )}
+              </div>
+
+              {showRecipeSuggestions && currentRecipes.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>🍽️ Dein Tagesplan (Vorschlag)</span>
+                    <span className="recipe-cal">Gesamt: {currentRecipes.reduce((s, r) => s + r.calories, 0)} kcal</span>
+                  </div>
+                  {currentRecipes.map(recipe => (
+                    <div key={recipe.id} className="recipe-card">
+                      <div className="recipe-header">
+                        <span className="recipe-name">{recipe.name}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span className="recipe-cal">{recipe.calories} kcal</span>
+                          <button className="fav-btn" onClick={() => toggleFavorite(recipe)}>
+                            {favoriteRecipes.some(r => r.id === recipe.id) ? <Star size={16} fill="#f59e0b" /> : <Star size={16} />}
+                          </button>
+                          <button className="details-btn" onClick={() => setSelectedRecipe(recipe)}>
+                            <BookOpen size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="recipe-explain">{recipe.explanation}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* MEINE FAVORITEN – ein-/ausblendbar */}
+            <div className="card">
+              <div className="slbl" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span><Star size={12} fill="#f59e0b" /> Meine Favoriten</span>
+                <button className="bg" onClick={() => setShowFavorites(!showFavorites)} style={{ padding: '4px 10px', height: 28 }}>
+                  {showFavorites ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  {showFavorites ? 'ausblenden' : 'einblenden'}
+                </button>
+              </div>
+              {showFavorites && (
+                <>
+                  {favoriteRecipes.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '20px 0', color: '#94a3b8', fontSize: 12 }}>
+                      Keine Favoriten gespeichert.<br />Klicke auf den Stern bei einem Rezept.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+                      {favoriteRecipes.map(recipe => (
+                        <div key={recipe.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: 8 }}>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 13 }}>{recipe.name}</div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>{recipe.calories} kcal</div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button className="details-btn" onClick={() => setSelectedRecipe(recipe)}>
+                              <BookOpen size={14} />
+                            </button>
+                            <button onClick={() => toggleFavorite(recipe)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#d97706' }}>
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* ANALYSE & PROGNOSE (mit Datumsanzeige) */}
             <div className="card card-full">
               <div className="slbl"><Target size={12} /> Analyse & Prognose</div>
               <div className="mini-dashboard">
@@ -1266,6 +1588,9 @@ export default function CaloriePage() {
                           <Tooltip contentStyle={{ fontSize: 10 }} />
                         </ResponsiveLineChart>
                       </div>
+                      <div style={{ marginTop: 8, fontSize: 10, color: '#64748b', textAlign: 'center', borderTop: '1px solid #e2e8f0', paddingTop: 6 }}>
+                        📅 In 8 Wochen: {formatted8WeeksDate}
+                      </div>
                     </>
                   ) : (
                     <div style={{ fontSize: 12, color: '#94a3b8', padding: '8px 0' }}>Genügend Gewichtsdaten für Trend benötigt</div>
@@ -1289,7 +1614,7 @@ export default function CaloriePage() {
                           <td>{d.actual ?? '–'}</td>
                           <td className={d.deviation !== null ? (d.deviation > 0 ? 'negativ' : 'positiv') : ''}>
                             {d.deviation !== null ? (d.deviation > 0 ? `+${d.deviation}` : d.deviation) : '–'}
-                           </td>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1346,6 +1671,7 @@ export default function CaloriePage() {
       {showWeight && <WeightModal onClose={() => setShowWeight(false)} onSave={saveWeight} currentWeight={profile.weight} />}
       {showBt && <BtModal onClose={() => setShowBt(false)} onRead={w => saveWeight(w, todayStr())} />}
       {editFood && <EditCalModal entry={editFood} onClose={() => setEditFood(null)} onSave={(id, cal) => setFoodEntries(p => p.map(e => e.id === id ? { ...e, calories: cal } : e))} />}
+      {selectedRecipe && <RecipeDetailModal recipe={selectedRecipe} onClose={() => setSelectedRecipe(null)} />}
     </>
   );
 }
