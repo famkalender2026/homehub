@@ -82,6 +82,57 @@ function ResponsiveAreaChart({ data, height = 55, ...props }: any) {
   );
 }
 
+// ========== VOICE-INPUT-KOMPONENTEN ==========
+function VoiceNumberInput({ value, onChange, placeholder, className }: any) {
+  const [listening, setListening] = useState(false);
+  const startVoice = () => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.lang = 'de-DE';
+    rec.onstart = () => setListening(true);
+    rec.onend = () => setListening(false);
+    rec.onresult = (e: any) => {
+      const text = e.results[0][0].transcript;
+      const match = text.match(/(\d+)[,.]?(\d+)?/);
+      if (match) {
+        let num = parseFloat(match[0].replace(',', '.'));
+        if (!isNaN(num)) onChange(num);
+      }
+    };
+    rec.start();
+  };
+  return (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <input className={className} type="number" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={{ flex: 1 }} />
+      <button type="button" className={`bic ${listening ? 'rec' : ''}`} onClick={startVoice}><Mic size={16} /></button>
+    </div>
+  );
+}
+
+function VoiceTextInput({ value, onChange, placeholder, className }: any) {
+  const [listening, setListening] = useState(false);
+  const startVoice = () => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.lang = 'de-DE';
+    rec.onstart = () => setListening(true);
+    rec.onend = () => setListening(false);
+    rec.onresult = (e: any) => {
+      const text = e.results[0][0].transcript;
+      onChange(text);
+    };
+    rec.start();
+  };
+  return (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <input className={className} type="text" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={{ flex: 1 }} />
+      <button type="button" className={`bic ${listening ? 'rec' : ''}`} onClick={startVoice}><Mic size={16} /></button>
+    </div>
+  );
+}
+
 // ==================== TYPEN ====================
 interface UserProfile {
   age: number; gender: 'male' | 'female'; weight: number; height: number;
@@ -145,7 +196,7 @@ const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
 const todayStr = () => fmtDate(new Date());
 const nowTime = () => new Date().toTimeString().slice(0, 5);
 
-// ==================== LEBENSMITTEL-DATENBANK (für parseFoodLine) ====================
+// ==================== LEBENSMITTEL-DATENBANK ====================
 const foodDB: Record<string, number> = {
   buchweizen: 343, buchweizenmehl: 335, haferflocken: 371, hafer: 389,
   granola: 450, cornflakes: 378, dinkel: 338, dinkelmehl: 348,
@@ -342,7 +393,7 @@ const RECIPE_DB: Recipe[] = [
     instructions: 'Kartoffeln halbieren, mit Öl und Salz mischen, bei 200°C 15 Minuten vorbacken. Lachs würzen, mit Zitrone und Spargel aufs Blech legen, weitere 15 Minuten backen.', mealType: 'dinner' },
   { id: 'd2', name: 'Zucchini-Nudeln mit Pesto', calories: 390, explanation: 'Zoodles mit selbstgemachtem Basilikum-Pesto und Kirschtomaten.',
     ingredients: ['2 Zucchini', '100g Kirschtomaten', '40g Basilikum', '30g Pinienkerne', '30g Parmesan', '1 Knoblauchzehe', '4 EL Olivenöl'],
-    instructions: 'Zucchini zu Nudeln spiralisieren. Pesto aus Basilikum, Pinienkernen, Parmesan, Knoblauch und ÖL mixen. Zoodles kurz erwärmen, Pesto unterheben, mit Tomaten servieren.', mealType: 'dinner' },
+    instructions: 'Zucchini zu Nudeln spiralisieren. Pesto aus Basilikum, Pinienkernen, Parmesan, Knoblauch und Öl mixen. Zoodles kurz erwärmen, Pesto unterheben, mit Tomaten servieren.', mealType: 'dinner' },
   { id: 'd3', name: 'Vegetarische Chili sin Carne', calories: 410, explanation: 'Bohnen, Mais, Paprika, Zwiebeln in Tomatensoße – serviert mit etwas Reis.',
     ingredients: ['1 Zwiebel', '1 Paprika', '200g Kidneybohnen', '150g Mais', '400g Tomaten (Dose)', '1 TL Chili', '1 TL Kreuzkümmel', '1 EL Öl'],
     instructions: 'Zwiebel und Paprika in Öl anbraten. Bohnen, Mais und Tomaten zugeben, mit Chili, Kreuzkümmel würzen, 15 Minuten köcheln.', mealType: 'dinner' },
@@ -363,7 +414,7 @@ const RECIPE_DB: Recipe[] = [
     instructions: 'Joghurt in Schälchen geben, Honig darüber träufeln.', mealType: 'snack' },
 ];
 
-// ==================== HILFSFUNKTIONEN (BMI, idealWeight, etc.) ====================
+// ==================== HILFSFUNKTIONEN ====================
 function idealWeight(height: number) {
   const m = height / 100;
   return { lo: Math.round(18.5 * m * m), hi: Math.round(24.9 * m * m) };
@@ -507,7 +558,7 @@ function FoodModal({ onClose, onSave }: { onClose: () => void; onSave: (e: Omit<
   const [tab, setTab] = useState<'manual' | 'voice'>('manual');
   const [name, setName] = useState('');
   const [cals, setCals] = useState('');
-  const [time, setTime] = useState(nowTime());
+  const [time, setTime] = useState('');
   const [listening, setListening] = useState(false);
   const [voiceOk, setVoiceOk] = useState(true);
   const [parsed, setParsed] = useState<ReturnType<typeof parseFoodLine> | null>(null);
@@ -515,7 +566,9 @@ function FoodModal({ onClose, onSave }: { onClose: () => void; onSave: (e: Omit<
   const [userEdited, setUserEdited] = useState(false);
   const tmr = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Set time only on client to avoid SSR mismatch
   useEffect(() => {
+    setTime(nowTime());
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     setVoiceOk(!!SR);
   }, []);
@@ -552,7 +605,7 @@ function FoodModal({ onClose, onSave }: { onClose: () => void; onSave: (e: Omit<
   const save = () => {
     const cal = parseInt(cals);
     if (!name.trim() || isNaN(cal) || cal <= 0) { alert('Bitte Name und Kalorien eingeben.'); return; }
-    onSave({ date: todayStr(), time, name: name.trim(), calories: cal, source: tab });
+    onSave({ date: todayStr(), time: time || nowTime(), name: name.trim(), calories: cal, source: tab });
     onClose();
   };
 
@@ -654,13 +707,16 @@ function ActivityModal({ weight, onClose, onSave }: { weight: number; onClose: (
                 })}
               </div>
             ) : (
-              <input className="inp" type="number" step="0.1" value={customMet} onChange={e => setCustomMet(e.target.value)} placeholder="MET-Wert (z.B. 6.5)" />
+              <VoiceNumberInput value={customMet} onChange={setCustomMet} placeholder="MET-Wert (z.B. 6.5)" className="inp" />
             )}
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 13, cursor: 'pointer' }}>
               <input type="checkbox" checked={custom} onChange={e => setCustom(e.target.checked)} /> Eigener MET-Wert
             </label>
           </div>
-          <div><label className="lbl">Dauer (Minuten)</label><input className="inp" type="number" value={duration} onChange={e => setDuration(Math.max(1, parseInt(e.target.value) || 0))} min={1} /></div>
+          <div>
+            <label className="lbl">Dauer (Minuten)</label>
+            <VoiceNumberInput value={duration} onChange={(val: any) => setDuration(Math.max(1, Number(val)))} placeholder="Minuten" className="inp" />
+          </div>
           <div style={{ background: '#f1f5f9', borderRadius: 16, padding: '14px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 14, color: '#64748b' }}>Verbrauch geschätzt</span>
             <span style={{ fontSize: 26, fontWeight: 700, color: '#2563eb' }}>{calories} <span style={{ fontSize: 13, fontWeight: 400 }}>kcal</span></span>
@@ -682,22 +738,13 @@ function ActivityModal({ weight, onClose, onSave }: { weight: number; onClose: (
 
 function WeightModal({ onClose, onSave, currentWeight }: { onClose: () => void; onSave: (w: number, d: string) => void; currentWeight: number }) {
   const [weight, setWeight] = useState(String(currentWeight));
-  const [date, setDate] = useState(todayStr());
-  const [listening, setListening] = useState(false);
-  const startVoice = () => {
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) return;
-    const rec = new SR(); rec.lang = 'de-DE';
-    rec.onstart = () => setListening(true);
-    rec.onend = () => setListening(false);
-    rec.onresult = (e: any) => {
-      const t = e.results[0][0].transcript;
-      const m = t.match(/(\d+)[,.](\d+)/);
-      const v = m ? parseFloat(m[1] + '.' + m[2]) : parseFloat(t.match(/(\d+)/)?.[1] || '0');
-      if (v > 0 && v < 300) setWeight(String(v));
-    };
-    rec.start();
-  };
+  const [date, setDate] = useState('');
+
+  // Set date only on client
+  useEffect(() => {
+    setDate(todayStr());
+  }, []);
+
   return (
     <div className="moo" onClick={onClose}>
       <div className="mosh" onClick={e => e.stopPropagation()}>
@@ -708,13 +755,7 @@ function WeightModal({ onClose, onSave, currentWeight }: { onClose: () => void; 
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div><label className="lbl">Datum</label><input className="inp" type="date" value={date} onChange={e => setDate(e.target.value)} /></div>
-          <div>
-            <label className="lbl">Gewicht (kg)</label>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input className="inp" type="number" step=".1" value={weight} onChange={e => setWeight(e.target.value)} style={{ flex: 1 }} />
-              <button className={`bic ${listening ? 'rec' : ''}`} onClick={startVoice}><Mic size={16} /></button>
-            </div>
-          </div>
+          <div><label className="lbl">Gewicht (kg)</label><VoiceNumberInput value={weight} onChange={setWeight} className="inp" placeholder="kg" /></div>
         </div>
         <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
           <button className="bg" onClick={onClose} style={{ flex: 1, justifyContent: 'center' }}>Abbrechen</button>
@@ -764,7 +805,7 @@ function EditCalModal({ entry, onClose, onSave }: { entry: FoodEntry; onClose: (
           <button className="bic" style={{ width: 40, height: 40 }} onClick={onClose}><X size={18} /></button>
         </div>
         <div style={{ background: '#f8fafc', borderRadius: 12, padding: '10px 14px', marginBottom: 14, fontSize: 13, color: '#475569' }}>{entry.name}</div>
-        <div><label className="lbl">Kalorien (kcal)</label><input className="inp" type="number" value={cals} onChange={e => setCals(e.target.value)} min={1} autoFocus /></div>
+        <div><label className="lbl">Kalorien (kcal)</label><VoiceNumberInput value={cals} onChange={setCals} className="inp" placeholder="kcal" /></div>
         <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
           <button className="bg" onClick={onClose} style={{ flex: 1, justifyContent: 'center' }}>Abbrechen</button>
           <button className="bp" onClick={() => { const v = parseInt(cals); if (v > 0) { onSave(entry.id, v); onClose(); } }} style={{ flex: 2, justifyContent: 'center', height: 48 }}><Save size={14} />Speichern</button>
@@ -835,36 +876,26 @@ export default function CaloriePage() {
   const [showFoodHist, setShowFoodHist] = useState(false);
   const [showWChart, setShowWChart] = useState(false);
   const [weightRangeMode, setWeightRangeMode] = useState<'last7' | 'custom'>('custom');
-  const [weightStart, setWeightStart] = useState<string>(() => safeLS.get(STORAGE_KEYS.weightStart) || fmtDate(new Date(Date.now() - 90 * 86400000)));
+  // weightStart: initialized with empty string on server, set on client
+  const [weightStart, setWeightStart] = useState<string>('');
   const [showBt, setShowBt] = useState(false);
   const [editFood, setEditFood] = useState<FoodEntry | null>(null);
 
   const [showFoodToday, setShowFoodToday] = useState(false);
   const [showActivityToday, setShowActivityToday] = useState(false);
 
-  const [calorieLimitManual, setCalorieLimitManual] = useState<number | null>(() => {
-    const saved = safeLS.get(STORAGE_KEYS.calorieLimitManual);
-    return saved ? parseInt(saved) : null;
-  });
+  // calorieLimitManual: initialized as null (no localStorage on server)
+  const [calorieLimitManual, setCalorieLimitManual] = useState<number | null>(null);
   const [useManualLimit, setUseManualLimit] = useState(false);
   const [showRecipeSuggestions, setShowRecipeSuggestions] = useState(false);
   const [currentRecipes, setCurrentRecipes] = useState<Recipe[]>([]);
-  const [favoriteRecipes, setFavoriteRecipes] = useState<Recipe[]>(() => {
-    const fav = safeLS.get(STORAGE_KEYS.favoriteRecipes);
-    return fav ? JSON.parse(fav) : [];
-  });
+
+  // FIX: favoriteRecipes starts empty on both server and client,
+  // then gets hydrated from localStorage in the useEffect below
+  const [favoriteRecipes, setFavoriteRecipes] = useState<Recipe[]>([]);
+
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [showFavorites, setShowFavorites] = useState(true);
-
-  // Dynamische Button-Farbe basierend auf goalMode
-  const getGoalColor = () => {
-    switch (goalMode) {
-      case 'lose': return '#ef4444';
-      case 'maintain': return '#10b981';
-      case 'gain': return '#3b82f6';
-      default: return '#2563eb';
-    }
-  };
 
   useEffect(() => {
     safeLS.set(STORAGE_KEYS.favoriteRecipes, JSON.stringify(favoriteRecipes));
@@ -884,24 +915,49 @@ export default function CaloriePage() {
     setResult({ bmr, tdee, goalCalories: { lose: Math.round(tdee * 0.8), maintain: tdee, gain: Math.round(tdee * 1.15) } });
   }, []);
 
+  // Single useEffect for all localStorage reads (runs only on client)
   useEffect(() => {
+    // weightStart default
+    const savedStart = safeLS.get(STORAGE_KEYS.weightStart);
+    setWeightStart(savedStart || fmtDate(new Date(Date.now() - 90 * 86400000)));
+
+    // calorieLimitManual
+    const savedLimit = safeLS.get(STORAGE_KEYS.calorieLimitManual);
+    if (savedLimit) setCalorieLimitManual(parseInt(savedLimit));
+
+    // favoriteRecipes
+    try {
+      const sf = safeLS.get(STORAGE_KEYS.favoriteRecipes);
+      if (sf) setFavoriteRecipes(JSON.parse(sf));
+    } catch {}
+
+    // profile
     const sp = safeLS.get(STORAGE_KEYS.profile);
     if (sp) {
       try { const p = JSON.parse(sp); setProfile(p); computeResult(p); setSaved(true); } catch {}
     } else {
       computeResult(profile);
     }
+
+    // goal
     const sg = safeLS.get(STORAGE_KEYS.goal);
     if (sg) setGoalMode(sg as 'lose' | 'maintain' | 'gain');
+
+    // weight entries
     try { const sw = safeLS.get(STORAGE_KEYS.weight); if (sw) setWeightEntries(JSON.parse(sw)); } catch {}
+
+    // activities
     try { const sa = safeLS.get(STORAGE_KEYS.activities); if (sa) setActivities(JSON.parse(sa)); } catch {}
-    try { const sf = safeLS.get(STORAGE_KEYS.food); if (sf) setFoodEntries(JSON.parse(sf)); } catch {}
+
+    // food entries
+    try { const sf2 = safeLS.get(STORAGE_KEYS.food); if (sf2) setFoodEntries(JSON.parse(sf2)); } catch {}
   }, []);
 
   useEffect(() => { safeLS.set(STORAGE_KEYS.weight, JSON.stringify(weightEntries)); }, [weightEntries]);
   useEffect(() => { safeLS.set(STORAGE_KEYS.activities, JSON.stringify(activities)); }, [activities]);
   useEffect(() => { safeLS.set(STORAGE_KEYS.food, JSON.stringify(foodEntries)); }, [foodEntries]);
   useEffect(() => { safeLS.set(STORAGE_KEYS.goal, goalMode); }, [goalMode]);
+  useEffect(() => { if (weightStart) safeLS.set(STORAGE_KEYS.weightStart, weightStart); }, [weightStart]);
 
   const updProfile = (field: keyof UserProfile, value: any) => {
     const u = { ...profile, [field]: value };
@@ -1027,6 +1083,10 @@ export default function CaloriePage() {
   const dateIn8Weeks = new Date(Date.now() + 8 * 7 * 86400000);
   const formatted8WeeksDate = dateIn8Weeks.toLocaleDateString('de-DE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
+  // All buttons are uniformly blue: #2563eb
+  const BLUE = '#2563eb';
+  const BLUE_RGB = '37,99,235';
+
   return (
     <>
       <style>{`
@@ -1061,7 +1121,7 @@ export default function CaloriePage() {
         .inp:focus { border-color: #2563eb; background: #fff; outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
         .sel { width: 100%; height: 44px; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 0 12px; font-size: 14px; background: #fafcff; }
         .bp {
-          background: var(--button-color, #2563eb);
+          background: #2563eb;
           border: none;
           border-radius: 12px;
           padding: 0 18px;
@@ -1076,15 +1136,37 @@ export default function CaloriePage() {
           transition: all 0.2s;
           box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
-        .bp:hover {
-          background: var(--button-color, #2563eb);
-          filter: brightness(0.9);
-          transform: scale(0.98);
+        .bp:hover { filter: brightness(0.9); transform: scale(0.98); }
+        .bg {
+          background: #2563eb;
+          border: none;
+          border-radius: 12px;
+          padding: 0 16px;
+          height: 38px;
+          color: #fff;
+          font-size: 12px;
+          font-weight: 500;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
         }
-        .bg { background: #f1f5f9; border: none; border-radius: 12px; padding: 0 16px; height: 38px; color: #1e293b; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s; }
-        .bg:hover { background: #e2e8f0; }
-        .bic { background: #f1f5f9; border: none; border-radius: 12px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; color: #1e293b; }
-        .bic:hover { background: #e2e8f0; transform: scale(0.96); }
+        .bg:hover { filter: brightness(0.9); transform: scale(0.98); }
+        .bic {
+          background: transparent;
+          border: none;
+          border-radius: 12px;
+          width: 40px;
+          height: 40px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s;
+          color: #2563eb;
+        }
+        .bic:hover { background: rgba(37,99,235,0.1); transform: scale(0.96); }
         .bic.rec { background: #ff3b30; color: #fff; animation: pulse 1.2s infinite; }
         .bdel { background: none; border: none; cursor: pointer; color: #94a3b8; padding: 6px; border-radius: 8px; transition: all 0.2s; }
         .bdel:hover { color: #ff3b30; background: #fee2e2; }
@@ -1111,16 +1193,31 @@ export default function CaloriePage() {
         .bmipip { position: absolute; top: -4px; width: 14px; height: 14px; background: #1e3a5f; border: 3px solid #fff; border-radius: 50%; transform: translateX(-50%); transition: left 0.5s cubic-bezier(0.2,0.9,0.4,1.1); box-shadow: 0 2px 6px rgba(0,0,0,0.2); }
         .rw { position: relative; flex-shrink: 0; }
         .ri { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .gc { padding: 4px 12px; border-radius: 20px; border: 1.5px solid; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .gc {
+          padding: 4px 12px;
+          border-radius: 20px;
+          border: 1.5px solid rgba(255,255,255,0.5);
+          font-size: 11px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+          background: transparent;
+          color: rgba(255,255,255,0.8);
+        }
+        .gc[data-active="true"] {
+          background: rgba(255,255,255,0.25);
+          color: #fff;
+          border-color: #fff;
+        }
         .tbar { display: flex; background: #f1f5f9; border-radius: 12px; padding: 4px; gap: 4px; margin-bottom: 18px; }
         .tbtn { flex: 1; border: none; border-radius: 8px; padding: 10px; font-size: 12px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s; background: transparent; color: #64748b; }
-        .tbtn.on { background: #fff; color: #0f172a; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .tbtn.on { background: #2563eb; color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .moo { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); display: flex; align-items: flex-end; justify-content: center; z-index: 1000; }
         .mosh { background: #fff; border-radius: 20px 20px 0 0; padding: 24px 20px 32px; width: 100%; max-width: 680px; max-height: 88vh; overflow-y: auto; }
         @media(min-width: 600px) { .moo { align-items: center; } .mosh { border-radius: 20px; max-height: 80vh; } }
         .mohdl { width: 44px; height: 5px; background: #d1d5db; border-radius: 20px; margin: 0 auto 20px; }
         .aopt { width: 100%; padding: 10px 14px; border-radius: 12px; border: 1.5px solid #e2e8f0; text-align: left; background: #fff; cursor: pointer; transition: all 0.2s; margin-bottom: 6px; }
-        .aopt.on { border-color: #2563eb; background: #eff6ff; }
+        .aopt.on { border-color: #2563eb; background: rgba(37,99,235,0.05); }
         .chart-w { width: 100%; height: 130px; min-width: 0; overflow: hidden; }
         .chart-wl { width: 100%; height: 180px; min-width: 0; overflow: hidden; }
         .erfolg-stat { display: flex; flex-direction: column; align-items: center; background: #f8fafc; border-radius: 12px; padding: 10px 12px; flex: 1; min-width: 80px; }
@@ -1128,7 +1225,7 @@ export default function CaloriePage() {
         .voice-warn { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 12px 14px; font-size: 12px; color: #9a3412; margin-bottom: 12px; }
         .sport-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; max-height: 280px; overflow-y: auto; padding: 4px; }
         .sport-card { display: flex; flex-direction: column; align-items: center; gap: 8px; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 10px 6px; cursor: pointer; transition: all 0.2s; }
-        .sport-card.selected { border-color: #2563eb; background: #eff6ff; transform: scale(0.98); }
+        .sport-card.selected { border-color: #2563eb; background: rgba(37,99,235,0.05); transform: scale(0.98); }
         .sport-card:hover { background: #f1f5f9; transform: translateY(-2px); }
         .sport-icon { width: 40px; height: 40px; background: #fff; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.05); }
         .mini-dashboard { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
@@ -1153,7 +1250,7 @@ export default function CaloriePage() {
           .mini-card { min-width: 140px; }
           .mini-value { font-size: 16px; }
         }
-        .bp:focus-visible, .bg:focus-visible { outline: 2px solid var(--blue-accent); outline-offset: 2px; }
+        .bp:focus-visible, .bg:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
         .recipe-card { background: #f8fafc; border-radius: 16px; padding: 12px; margin-bottom: 12px; border-left: 4px solid #2563eb; }
         .recipe-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
         .recipe-name { font-weight: 700; font-size: 14px; }
@@ -1164,7 +1261,9 @@ export default function CaloriePage() {
         .details-btn { background: none; border: none; cursor: pointer; color: #64748b; transition: color 0.2s; }
         .details-btn:hover { color: #2563eb; }
       `}</style>
-      <div className="cp" style={{ '--button-color': getGoalColor() } as React.CSSProperties}>
+
+      {/* FIX: removed dynamic --button-color CSS variable, all buttons are uniformly blue via CSS classes */}
+      <div className="cp">
         <div className="hdr">
           <div className="hdr-r">
             <div className="hdr-logo">
@@ -1195,10 +1294,10 @@ export default function CaloriePage() {
               {settingsOpen && (
                 <div className="sbody">
                   <div className="g2">
-                    <div><label className="lbl">Alter</label><input className="inp" type="number" value={profile.age} onChange={e => updProfile('age', parseInt(e.target.value) || 0)} /></div>
+                    <div><label className="lbl">Alter</label><VoiceNumberInput value={profile.age} onChange={(val: any) => updProfile('age', parseInt(val) || 0)} className="inp" /></div>
                     <div><label className="lbl">Geschlecht</label><select className="sel" value={profile.gender} onChange={e => updProfile('gender', e.target.value)}><option value="male">Männlich</option><option value="female">Weiblich</option></select></div>
-                    <div><label className="lbl">Gewicht (kg)</label><input className="inp" type="number" step=".1" value={profile.weight} onChange={e => updProfile('weight', parseFloat(e.target.value) || 0)} /></div>
-                    <div><label className="lbl">Größe (cm)</label><input className="inp" type="number" value={profile.height} onChange={e => updProfile('height', parseInt(e.target.value) || 0)} /></div>
+                    <div><label className="lbl">Gewicht (kg)</label><VoiceNumberInput value={profile.weight} onChange={(val: any) => updProfile('weight', parseFloat(val) || 0)} className="inp" /></div>
+                    <div><label className="lbl">Größe (cm)</label><VoiceNumberInput value={profile.height} onChange={(val: any) => updProfile('height', parseInt(val) || 0)} className="inp" /></div>
                   </div>
                   <div>
                     <label className="lbl">Aktivitätslevel</label>
@@ -1226,39 +1325,20 @@ export default function CaloriePage() {
               )}
             </div>
 
-            {/* TAGESRING mit farbigen Ziel-Buttons */}
+            {/* TAGESRING */}
             {result && (
               <div className="card-dk">
                 <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
-                  {(['lose', 'maintain', 'gain'] as const).map(k => {
-                    let bgColor = 'transparent';
-                    let textColor = 'rgba(255,255,255,.85)';
-                    let borderColor = 'rgba(255,255,255,.3)';
-                    if (goalMode === k) {
-                      if (k === 'lose') { bgColor = '#ef4444'; textColor = '#fff'; borderColor = '#ef4444'; }
-                      if (k === 'maintain') { bgColor = '#10b981'; textColor = '#fff'; borderColor = '#10b981'; }
-                      if (k === 'gain') { bgColor = '#3b82f6'; textColor = '#fff'; borderColor = '#3b82f6'; }
-                    } else {
-                      if (k === 'lose') borderColor = '#ef4444';
-                      if (k === 'maintain') borderColor = '#10b981';
-                      if (k === 'gain') borderColor = '#3b82f6';
-                    }
-                    return (
-                      <button
-                        key={k}
-                        className="gc"
-                        onClick={() => setGoalMode(k)}
-                        style={{
-                          borderColor: borderColor,
-                          background: bgColor,
-                          color: textColor,
-                          opacity: goalMode === k ? 1 : 0.7
-                        }}
-                      >
-                        {k === 'lose' ? `Abnehmen · ${result.goalCalories.lose}` : k === 'maintain' ? `Halten · ${result.goalCalories.maintain}` : `Zunehmen · ${result.goalCalories.gain}`}
-                      </button>
-                    );
-                  })}
+                  {(['lose', 'maintain', 'gain'] as const).map(k => (
+                    <button
+                      key={k}
+                      className="gc"
+                      onClick={() => setGoalMode(k)}
+                      data-active={goalMode === k}
+                    >
+                      {k === 'lose' ? `Abnehmen · ${result.goalCalories.lose}` : k === 'maintain' ? `Halten · ${result.goalCalories.maintain}` : `Zunehmen · ${result.goalCalories.gain}`}
+                    </button>
+                  ))}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                   <div className="rw">
@@ -1285,7 +1365,7 @@ export default function CaloriePage() {
               </div>
             )}
 
-            {/* MAHLZEITEN heute – aufklappbar */}
+            {/* MAHLZEITEN HEUTE */}
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <div className="slbl" style={{ margin: 0 }}><UtensilsCrossed size={12} />Mahlzeiten heute</div>
@@ -1293,7 +1373,7 @@ export default function CaloriePage() {
                   <button className="bp" onClick={() => setShowFood(true)}><Plus size={13} />Eintragen</button>
                   <button className="bg" onClick={() => setShowFoodToday(!showFoodToday)} style={{ padding: '0 10px' }}>
                     {showFoodToday ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                    {showFoodToday ? 'ausblenden' : 'heute anzeigen'}
+                    {showFoodToday ? 'ausblenden' : 'anzeigen'}
                   </button>
                 </div>
               </div>
@@ -1328,7 +1408,7 @@ export default function CaloriePage() {
               )}
             </div>
 
-            {/* AKTIVITÄTEN heute – aufklappbar */}
+            {/* AKTIVITÄTEN HEUTE */}
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                 <div className="slbl" style={{ margin: 0 }}><Dumbbell size={12} />Aktivitäten heute</div>
@@ -1336,7 +1416,7 @@ export default function CaloriePage() {
                   <button className="bp" onClick={() => setShowActivity(true)}><Plus size={13} />Eintragen</button>
                   <button className="bg" onClick={() => setShowActivityToday(!showActivityToday)} style={{ padding: '0 10px' }}>
                     {showActivityToday ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                    {showActivityToday ? 'ausblenden' : 'heute anzeigen'}
+                    {showActivityToday ? 'ausblenden' : 'anzeigen'}
                   </button>
                 </div>
               </div>
@@ -1420,7 +1500,9 @@ export default function CaloriePage() {
               <div style={{ display: 'flex', gap: 6, marginTop: 12, marginBottom: 8 }}>
                 <button className={weightRangeMode === 'last7' ? 'bp' : 'bg'} style={{ padding: '0 12px', height: 32, fontSize: 11 }} onClick={() => setWeightRangeMode('last7')}>7 Tage</button>
                 <button className={weightRangeMode === 'custom' ? 'bp' : 'bg'} style={{ padding: '0 12px', height: 32, fontSize: 11 }} onClick={() => setWeightRangeMode('custom')}>Zeitraum</button>
-                {weightRangeMode === 'custom' && <input type="date" className="inp" value={weightStart} onChange={e => setWeightStart(e.target.value)} style={{ height: 32, fontSize: 11, flex: 1 }} />}
+                {weightRangeMode === 'custom' && weightStart && (
+                  <input type="date" className="inp" value={weightStart} onChange={e => setWeightStart(e.target.value)} style={{ height: 32, fontSize: 11, flex: 1 }} />
+                )}
               </div>
               {chartsReady && filteredWeights().length > 0 ? (
                 <div className="chart-w">
@@ -1455,16 +1537,16 @@ export default function CaloriePage() {
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 8 }}>
                   <input type="checkbox" checked={useManualLimit} onChange={e => setUseManualLimit(e.target.checked)} />
-                  Manuelles Limit verwenden (sonst wird Ziel aus Abnehmen/Halten/Zunehmen genutzt)
+                  Manuelles Limit verwenden
                 </label>
                 {useManualLimit && (
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <input className="inp" type="number" value={calorieLimitManual || ''} onChange={e => setCalorieLimitManual(parseInt(e.target.value) || null)} placeholder="z.B. 2200" style={{ flex: 1 }} />
+                    <VoiceNumberInput value={calorieLimitManual || ''} onChange={(val: any) => setCalorieLimitManual(parseInt(val) || null)} className="inp" placeholder="z.B. 2200" />
                     <span>kcal</span>
                   </div>
                 )}
                 <div style={{ marginTop: 8, fontSize: 12, color: '#64748b' }}>
-                  Aktuelles Limit: <strong>{getCurrentLimit()} kcal</strong> {useManualLimit ? '(manuell)' : `(aus Ziel: ${goalMode === 'lose' ? 'Abnehmen' : goalMode === 'maintain' ? 'Halten' : 'Zunehmen'})`}
+                  Aktuelles Limit: <strong>{getCurrentLimit()} kcal</strong> {useManualLimit ? '(manuell)' : `(${goalMode === 'lose' ? 'Abnehmen' : goalMode === 'maintain' ? 'Halten' : 'Zunehmen'})`}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1505,10 +1587,10 @@ export default function CaloriePage() {
               )}
             </div>
 
-            {/* MEINE FAVORITEN – ein-/ausblendbar */}
+            {/* MEINE FAVORITEN */}
             <div className="card">
               <div className="slbl" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span><Star size={12} fill="#f59e0b" /> Meine Favoriten</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Star size={12} fill="#f59e0b" /> Meine Favoriten</span>
                 <button className="bg" onClick={() => setShowFavorites(!showFavorites)} style={{ padding: '4px 10px', height: 28 }}>
                   {showFavorites ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
                   {showFavorites ? 'ausblenden' : 'einblenden'}
@@ -1544,7 +1626,7 @@ export default function CaloriePage() {
               )}
             </div>
 
-            {/* ANALYSE & PROGNOSE (mit Datumsanzeige) */}
+            {/* ANALYSE & PROGNOSE */}
             <div className="card card-full">
               <div className="slbl"><Target size={12} /> Analyse & Prognose</div>
               <div className="mini-dashboard">
@@ -1620,7 +1702,7 @@ export default function CaloriePage() {
                     </tbody>
                   </table>
                   <div style={{ fontSize: 10, color: '#64748b', marginTop: 6 }}>
-                    Positive Abweichung = mehr Gewicht als geplant (weniger abgenommen/mehr zugenommen).
+                    Positive Abweichung = mehr Gewicht als geplant.
                   </div>
                 </div>
               )}
